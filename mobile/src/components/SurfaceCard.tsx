@@ -1,6 +1,6 @@
 import styled from '@emotion/native';
 
-import { colors, radii, spacing } from '../tokens';
+import { colors, radii, spacing } from '../theme';
 
 export const SurfaceCard = styled.View({
   backgroundColor: colors.paper,

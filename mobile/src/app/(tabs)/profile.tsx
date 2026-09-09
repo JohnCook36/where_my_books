@@ -1,4 +1,4 @@
-import { AppHeader, EmptyState, PillButton, ScreenContainer, ScreenContent } from '@where-my-books/ui/native';
+import { AppHeader, EmptyState, PillButton, ScreenContainer, ScreenContent } from '@/components';
 import { router } from 'expo-router';
 import { useAuth } from '../../features/auth/AuthProvider';
 

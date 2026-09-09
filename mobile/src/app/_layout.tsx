@@ -1,11 +1,11 @@
 import { ThemeProvider } from '@emotion/react';
-import { colors, motion, radii, spacing } from '@where-my-books/ui';
+import { colors, motion, radii, spacing } from '@/theme';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
-import { LoadingState } from '@where-my-books/ui/native';
+import { LoadingState } from '@/components';
 import { AuthProvider, useAuth } from '../features/auth/AuthProvider';
 
 const theme = { colors, motion, radii, spacing };

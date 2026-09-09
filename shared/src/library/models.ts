@@ -1,4 +1,4 @@
-import type { ProgressDisplayMode, ReadingProgress, ReadingStatus } from '../reading/progress.js';
+import type { ProgressDisplayMode, ReadingProgress, ReadingStatus } from '../reading/progress';
 
 export type EntityId = string;
 

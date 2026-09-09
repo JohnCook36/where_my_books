@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AppHeader, ErrorState, LoadingState, PillButton, ScreenContainer, ScreenContent } from '@where-my-books/ui/native';
+import { AppHeader, ErrorState, LoadingState, PillButton, ScreenContainer, ScreenContent } from '@/components';
 import type { ProgressDisplayMode } from '@where-my-books/shared';
 import { api } from '../../api/client';
 

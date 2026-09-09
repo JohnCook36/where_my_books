@@ -1,5 +1,5 @@
-import type { LibraryBook, UserSettings } from '../library/models.js';
-import type { ProgressDisplayMode, ReadingStatus } from '../reading/progress.js';
+import type { LibraryBook, UserSettings } from '../library/models';
+import type { ProgressDisplayMode, ReadingStatus } from '../reading/progress';
 
 export interface RegisterRequest { email: string; password: string }
 export interface LoginRequest { email: string; password: string }

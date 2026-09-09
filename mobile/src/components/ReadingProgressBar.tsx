@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled from '@emotion/native';
 
-import { colors, motion, radii } from '../tokens';
+import { colors, motion, radii } from '../theme';
 
 interface ReadingProgressBarProps {
   value: number;

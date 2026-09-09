@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { colors } from '@where-my-books/ui';
+import { colors } from '@/theme';
 
 export default function TabsLayout() {
   return <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: colors.forest, tabBarInactiveTintColor: colors.inkMuted, tabBarStyle: { backgroundColor: colors.paper, borderTopColor: colors.border, height: 70, paddingBottom: 10, paddingTop: 8 } }}>

@@ -1,7 +1,7 @@
 import styled from '@emotion/native';
 import * as Haptics from 'expo-haptics';
-import { colors } from '../tokens/colors';
-import { radii } from '../tokens/radii';
+import { colors } from '../theme/colors';
+import { radii } from '../theme/radii';
 
 const Root = styled.View({ backgroundColor: colors.surfaceRecessed, borderRadius: radii.full, flexDirection: 'row', padding: 3 });
 const Option = styled.Pressable<{ active: boolean }>(({ active }) => ({ backgroundColor: active ? colors.paper : 'transparent', borderRadius: radii.full, paddingHorizontal: 10, paddingVertical: 7 }));

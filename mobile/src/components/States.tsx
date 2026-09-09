@@ -1,7 +1,7 @@
 import styled from '@emotion/native';
-import { colors } from '../tokens/colors';
-import { spacing } from '../tokens/spacing';
-import { typography } from '../tokens/typography';
+import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 const Root = styled.View({ alignItems: 'center', gap: spacing.xs, padding: spacing.xxl });
 const Title = styled.Text({ color: colors.ink, ...typography.heading, textAlign: 'center' });
 const Message = styled.Text({ color: colors.inkSecondary, ...typography.body, textAlign: 'center' });

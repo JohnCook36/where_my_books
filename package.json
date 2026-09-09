@@ -6,7 +6,6 @@
     "node": ">=22.13.0"
   },
   "workspaces": [
-    "ui",
     "shared",
     "client",
     "server",
@@ -19,5 +18,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "react-dom": "19.2.3"
   }
 }

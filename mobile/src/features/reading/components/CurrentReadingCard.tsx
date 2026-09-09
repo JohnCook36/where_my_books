@@ -8,9 +8,8 @@ import {
   PillButton,
   ReadingProgressBar,
   SurfaceCard,
-  colors,
-  spacing,
-} from '@where-my-books/ui/native';
+} from '@/components';
+import { colors, spacing } from '@/theme';
 import * as Haptics from 'expo-haptics';
 
 import type { LibraryBookPreview } from '../../library/types';

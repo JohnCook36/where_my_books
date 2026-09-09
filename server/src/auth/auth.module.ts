@@ -10,6 +10,6 @@ import { JwtAuthGuard } from './jwt-auth.guard.js';
   imports: [JwtModule.registerAsync({ imports: [ConfigModule], inject: [ConfigService], useFactory: (config: ConfigService) => ({ secret: config.getOrThrow<string>('JWT_ACCESS_SECRET') }) })],
   controllers: [AuthController],
   providers: [AuthService, JwtAuthGuard, PrismaService],
-  exports: [JwtAuthGuard],
+  exports: [JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}

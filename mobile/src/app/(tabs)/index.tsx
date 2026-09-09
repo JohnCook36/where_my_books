@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import styled from '@emotion/native';
 import type { ProgressDisplayMode } from '@where-my-books/shared';
-import { colors, spacing, typography } from '@where-my-books/ui';
-import { EmptyState, ErrorState, LoadingState, ScreenContainer, ScreenContent, ScreenScroll } from '@where-my-books/ui/native';
+import { EmptyState, ErrorState, LoadingState, ScreenContainer, ScreenContent, ScreenScroll } from '@/components';
+import { colors, spacing, typography } from '@/theme';
 import { VirtualShelfPreview } from '../../features/library/components/VirtualShelfPreview';
 import { CurrentReadingCard } from '../../features/reading/components/CurrentReadingCard';
 import type { LibraryBookPreview } from '../../features/library/types';

@@ -5,7 +5,8 @@ import {
   getReadingProgressRatio,
   type ProgressDisplayMode,
 } from '@where-my-books/shared';
-import { BookSpine, colors, radii, SegmentedControl, spacing } from '@where-my-books/ui/native';
+import { BookSpine, SegmentedControl } from '@/components';
+import { colors, radii, spacing } from '@/theme';
 import * as Haptics from 'expo-haptics';
 import { ScrollView } from 'react-native';
 

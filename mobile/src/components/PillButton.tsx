@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import styled from '@emotion/native';
 
-import { colors, motion, radii, spacing } from '../tokens';
+import { colors, motion, radii, spacing } from '../theme';
 
 type PillButtonVariant = 'primary' | 'secondary';
 
@@ -48,6 +48,7 @@ export const PillButton = ({
 
   const handlePressIn: NonNullable<PressableProps['onPressIn']> = useCallback(
     (event) => {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable by design.
       scale.value = reduceMotion
         ? 1
         : withTiming(0.97, { duration: motion.duration.fast });
@@ -58,6 +59,7 @@ export const PillButton = ({
 
   const handlePressOut: NonNullable<PressableProps['onPressOut']> = useCallback(
     (event) => {
+      // eslint-disable-next-line react-hooks/immutability -- Reanimated shared values are mutable by design.
       scale.value = reduceMotion ? 1 : withSpring(1, motion.spring.press);
       onPressOut?.(event);
     },

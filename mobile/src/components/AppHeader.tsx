@@ -1,8 +1,8 @@
 import styled from '@emotion/native';
 import type { ReactNode } from 'react';
-import { colors } from '../tokens/colors';
-import { spacing } from '../tokens/spacing';
-import { typography } from '../tokens/typography';
+import { colors } from '../theme/colors';
+import { spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 import { BackButton } from './BackButton';
 
 const Wrap = styled.View({ alignItems: 'center', flexDirection: 'row', gap: spacing.sm, minHeight: 44 });

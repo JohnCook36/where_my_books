@@ -2,8 +2,8 @@ import styled from '@emotion/native';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, TextInput } from 'react-native';
-import { colors, spacing, typography } from '@where-my-books/ui';
-import { PillButton, ScreenContainer, ScreenContent } from '@where-my-books/ui/native';
+import { PillButton, ScreenContainer, ScreenContent } from '@/components';
+import { colors, spacing, typography } from '@/theme';
 import { useAuth } from './AuthProvider';
 
 const Title = styled.Text({ color: colors.ink, ...typography.display, marginBottom: spacing.sm });
