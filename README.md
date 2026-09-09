@@ -1,33 +1,41 @@
 # BookNook / WhereMyBooks
 
-BookNook is a personal library and reading-tracker project focused on recreating a user's real bookshelf digitally.
+BookNook is a personal library and reading tracker focused on recreating a user's real bookshelf digitally.
 
 ## Repository structure
 
 ```text
 where_my_books/
+├── ui/       # Shared design tokens and reusable UI building blocks
+├── shared/   # Shared domain types, contracts and pure logic
 ├── client/   # Web client
 ├── server/   # Backend API
 ├── mobile/   # Mobile application
 ├── package.json
-├── tsconfig.base.json
-└── .gitignore
+└── tsconfig.base.json
 ```
 
-`client`, `server`, and `mobile` are independent sibling applications. None of them is nested inside another.
+All top-level applications and packages are siblings. Nothing is nested inside another application.
+
+## Sharing rules
+
+- `ui` is consumed by `mobile` and later by `client`.
+- `ui` owns design tokens, motion tokens and reusable components where sharing is practical.
+- Platform-specific UI implementations are allowed when web and React Native need different primitives.
+- `shared` owns pure TypeScript domain models, validation/contracts and reusable business logic.
+- `server` never depends on UI.
 
 ## Product principles
 
 - Personal library first.
 - A virtual shelf should visually represent a real shelf.
-- Reading progress must be visible directly on books/shelves.
+- Reading progress must be visible directly on books and shelves.
 - The user can choose progress display as percentage or pages.
 - Motion and micro-interactions are a core part of the product experience.
-- Book metadata and covers should be enrichable from external book sources while the app keeps its own data model.
 - Private notes/quotes and public reviews are separate concepts.
 
-## Planned stack
+## Current development focus
 
-- `client`: React + TypeScript + Vite + Emotion
-- `server`: NestJS + TypeScript + PostgreSQL + Prisma
-- `mobile`: Expo + React Native + TypeScript + Expo Router + Emotion + Reanimated
+The first implementation target is `mobile`.
+
+Current mobile foundation: Expo SDK 57, React Native, TypeScript, Expo Router, Emotion, Reanimated and Gesture Handler.

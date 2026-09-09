@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "BookNook",
+    "slug": "where-my-books",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "booknook",
+    "userInterfaceStyle": "light",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "android": {
+      "predictiveBackGestureEnabled": true
+    }
+  }
+}

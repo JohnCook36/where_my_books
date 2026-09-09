@@ -1,15 +1,21 @@
 {
   "name": "where-my-books",
+  "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "workspaces": [
+    "ui",
+    "shared",
     "client",
     "server",
     "mobile"
   ],
   "scripts": {
-    "dev:client": "npm --workspace client run dev",
-    "dev:server": "npm --workspace server run start:dev",
-    "dev:mobile": "npm --workspace mobile run start",
+    "dev:mobile": "npm --workspace @where-my-books/mobile run start",
+    "android": "npm --workspace @where-my-books/mobile run android",
+    "ios": "npm --workspace @where-my-books/mobile run ios",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
   }
