@@ -1,0 +1,10 @@
+import styled from '@emotion/native';
+import { colors } from '../tokens/colors';
+import { spacing } from '../tokens/spacing';
+import { typography } from '../tokens/typography';
+const Root = styled.View({ alignItems: 'center', gap: spacing.xs, padding: spacing.xxl });
+const Title = styled.Text({ color: colors.ink, ...typography.heading, textAlign: 'center' });
+const Message = styled.Text({ color: colors.inkSecondary, ...typography.body, textAlign: 'center' });
+export const LoadingState = ({ message = 'Загружаем…' }: { message?: string }) => <Root><Message>{message}</Message></Root>;
+export const EmptyState = ({ title, message }: { title: string; message?: string }) => <Root><Title>{title}</Title>{message ? <Message>{message}</Message> : null}</Root>;
+export const ErrorState = ({ title = 'Не удалось загрузить данные', message }: { title?: string; message?: string }) => <Root><Title>{title}</Title>{message ? <Message>{message}</Message> : null}</Root>;

@@ -1,0 +1,2 @@
+import { AppHeader, EmptyState, ScreenContainer, ScreenContent } from '@where-my-books/ui/native';
+export default function LibraryScreen() { return <ScreenContainer><ScreenContent><AppHeader title="Библиотека" subtitle="Твоя коллекция книг" /><EmptyState title="Библиотека пока пуста" message="Здесь появятся твои книги. Полное добавление будет на следующем этапе." /></ScreenContent></ScreenContainer>; }
