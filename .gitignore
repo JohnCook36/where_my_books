@@ -33,6 +33,8 @@ Thumbs.db
 
 # Expo
 .expo-shared/
+mobile/android/
+mobile/ios/
 
 # misc
 *.tsbuildinfo
