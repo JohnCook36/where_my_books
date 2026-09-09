@@ -19,7 +19,7 @@
 
 ## Этап 0. Фундамент проекта
 
-**Статус: 🔄 почти завершён**
+**Статус: ✅ завершён**
 
 - [x] monorepo/workspaces;
 - [x] соседние `mobile`, `client`, `server`, `ui`, `shared`;
@@ -30,10 +30,11 @@
 - [x] первый прототип виртуальной полки;
 - [x] локальный Android development build;
 - [x] Vitest foundation для `shared` и `npm run test` в CI;
-- [ ] привести Expo/RN-зависимости к рекомендованным версиям;
-- [ ] чистая установка зависимостей;
-- [ ] финальная проверка `expo-doctor`;
-- [ ] финальная проверка `npm run test` после обновления lock-файла.
+- [x] Expo/RN-зависимости приведены к совместимым версиям;
+- [x] чистая установка зависимостей;
+- [x] `expo-doctor`: 21/21;
+- [x] `npm run test`: 16/16;
+- [x] CI проверяет install, typecheck, lint и tests.
 
 ## Этап 1. App Shell, навигация и дизайн-система
 
@@ -45,7 +46,7 @@
 - [x] `ScreenContainer`, `AppHeader`, `BackButton`;
 - [x] `SegmentedControl`, Loading/Empty/Error states;
 - [x] typography tokens;
-- [x] Reduce Motion foundation;
+- [x] Reduce Motion для stack-переходов и ключевых Reanimated-компонентов;
 - [x] текущая virtual shelf, текущая книга и progress overlay;
 - [x] переключение `% / Страницы`;
 - [x] `+10 страниц`, анимации и haptics.

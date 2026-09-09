@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import type { PressableProps } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
   withTiming,
@@ -38,6 +39,7 @@ export const PillButton = ({
   onPressOut,
   ...props
 }: PillButtonProps) => {
+  const reduceMotion = useReducedMotion() ?? false;
   const scale = useSharedValue(1);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -46,18 +48,20 @@ export const PillButton = ({
 
   const handlePressIn: NonNullable<PressableProps['onPressIn']> = useCallback(
     (event) => {
-      scale.value = withTiming(0.97, { duration: motion.duration.fast });
+      scale.value = reduceMotion
+        ? 1
+        : withTiming(0.97, { duration: motion.duration.fast });
       onPressIn?.(event);
     },
-    [onPressIn, scale],
+    [onPressIn, reduceMotion, scale],
   );
 
   const handlePressOut: NonNullable<PressableProps['onPressOut']> = useCallback(
     (event) => {
-      scale.value = withSpring(1, motion.spring.press);
+      scale.value = reduceMotion ? 1 : withSpring(1, motion.spring.press);
       onPressOut?.(event);
     },
-    [onPressOut, scale],
+    [onPressOut, reduceMotion, scale],
   );
 
   const isPrimary = variant === 'primary';

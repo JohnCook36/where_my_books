@@ -15,13 +15,14 @@ const theme = {
 export default function RootLayout() {
   const reduceMotion = useReducedMotion() ?? false;
   const appTheme = { ...theme, motion: { ...motion, reduceMotion } };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider theme={appTheme}>
         <StatusBar style="dark" />
         <Stack
           screenOptions={{
-            animation: 'fade_from_bottom',
+            animation: reduceMotion ? 'none' : 'fade_from_bottom',
             contentStyle: { backgroundColor: colors.canvas },
             headerShown: false,
           }}

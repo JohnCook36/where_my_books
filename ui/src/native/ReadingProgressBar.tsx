@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -45,14 +46,16 @@ const Label = styled.Text({
 const clampProgress = (value: number) => Math.min(Math.max(value, 0), 1);
 
 export const ReadingProgressBar = ({ value, label }: ReadingProgressBarProps) => {
+  const reduceMotion = useReducedMotion() ?? false;
   const [trackWidth, setTrackWidth] = useState(0);
   const progress = useSharedValue(clampProgress(value));
 
   useEffect(() => {
-    progress.value = withTiming(clampProgress(value), {
-      duration: motion.duration.normal,
-    });
-  }, [progress, value]);
+    const nextProgress = clampProgress(value);
+    progress.value = reduceMotion
+      ? nextProgress
+      : withTiming(nextProgress, { duration: motion.duration.normal });
+  }, [progress, reduceMotion, value]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     width: trackWidth * progress.value,

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { PressableProps } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withSpring,
   withTiming,
@@ -75,19 +76,26 @@ export const BookSpine = ({
   active = false,
   onPress,
 }: BookSpineProps) => {
+  const reduceMotion = useReducedMotion() ?? false;
   const progress = useSharedValue(clampProgress(value));
   const scale = useSharedValue(1);
-  const translateY = useSharedValue(active ? -6 : 0);
+  const translateY = useSharedValue(reduceMotion ? 0 : active ? -6 : 0);
 
   useEffect(() => {
-    progress.value = withTiming(clampProgress(value), {
-      duration: motion.duration.slow,
-    });
-  }, [progress, value]);
+    const nextProgress = clampProgress(value);
+    progress.value = reduceMotion
+      ? nextProgress
+      : withTiming(nextProgress, { duration: motion.duration.slow });
+  }, [progress, reduceMotion, value]);
 
   useEffect(() => {
+    if (reduceMotion) {
+      translateY.value = 0;
+      return;
+    }
+
     translateY.value = withSpring(active ? -6 : 0, motion.spring.shelf);
-  }, [active, translateY]);
+  }, [active, reduceMotion, translateY]);
 
   const containerStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }, { scale: scale.value }],
@@ -103,10 +111,12 @@ export const BookSpine = ({
         accessibilityRole="button"
         onPress={onPress}
         onPressIn={() => {
-          scale.value = withTiming(0.97, { duration: motion.duration.fast });
+          scale.value = reduceMotion
+            ? 1
+            : withTiming(0.97, { duration: motion.duration.fast });
         }}
         onPressOut={() => {
-          scale.value = withSpring(1, motion.spring.press);
+          scale.value = reduceMotion ? 1 : withSpring(1, motion.spring.press);
         }}
         style={{
           backgroundColor: color,
