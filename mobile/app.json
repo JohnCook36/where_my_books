@@ -6,13 +6,16 @@
     "orientation": "portrait",
     "scheme": "booknook",
     "userInterfaceStyle": "light",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "android": {
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "package": "com.johncook.wheremybooks"
     }
   }
 }
