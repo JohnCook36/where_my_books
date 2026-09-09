@@ -13,6 +13,8 @@ import type { LibraryBookPreview } from '../mockBooks';
 
 interface VirtualShelfPreviewProps {
   books: LibraryBookPreview[];
+  mode: ProgressDisplayMode;
+  onChangeMode: (mode: ProgressDisplayMode) => void;
 }
 
 const Header = styled.View({
@@ -83,8 +85,11 @@ const Hint = styled.Text({
   marginTop: spacing.sm,
 });
 
-export const VirtualShelfPreview = ({ books }: VirtualShelfPreviewProps) => {
-  const [mode, setMode] = useState<ProgressDisplayMode>('percentage');
+export const VirtualShelfPreview = ({
+  books,
+  mode,
+  onChangeMode,
+}: VirtualShelfPreviewProps) => {
   const [activeBookId, setActiveBookId] = useState(books[0]?.id ?? '');
 
   const activeBook = useMemo(
@@ -93,7 +98,7 @@ export const VirtualShelfPreview = ({ books }: VirtualShelfPreviewProps) => {
   );
 
   const changeMode = (nextMode: ProgressDisplayMode) => {
-    setMode(nextMode);
+    onChangeMode(nextMode);
     void Haptics.selectionAsync();
   };
 
