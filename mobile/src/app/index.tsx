@@ -15,12 +15,7 @@ const Screen = styled(SafeAreaView)({
   flex: 1,
 });
 
-const Scroll = styled.ScrollView.attrs({
-  contentContainerStyle: {
-    paddingBottom: 56,
-  },
-  showsVerticalScrollIndicator: false,
-})({
+const Scroll = styled.ScrollView({
   flex: 1,
 });
 
@@ -29,6 +24,8 @@ const Content = styled.View({
   paddingHorizontal: 20,
   paddingTop: spacing.lg,
 });
+
+const HeaderBlock = styled.View({});
 
 const Greeting = styled.Text({
   color: colors.inkSecondary,
@@ -77,16 +74,19 @@ export default function HomeScreen() {
 
   return (
     <Screen edges={['top', 'left', 'right']}>
-      <Scroll>
+      <Scroll
+        contentContainerStyle={{ paddingBottom: 56 }}
+        showsVerticalScrollIndicator={false}
+      >
         <Content>
-          <styled.View>
+          <HeaderBlock>
             <Greeting>BOOKNOOK</Greeting>
             <Hero>Твоя библиотека всегда рядом.</Hero>
             <Intro>
               Первая живая версия виртуальной полки: прогресс виден прямо на
               корешках и плавно меняется вместе с чтением.
             </Intro>
-          </styled.View>
+          </HeaderBlock>
 
           <VirtualShelfPreview books={books} />
 

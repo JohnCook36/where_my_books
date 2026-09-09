@@ -12,7 +12,7 @@ import { colors, motion, radii, spacing } from '../tokens';
 
 type PillButtonVariant = 'primary' | 'secondary';
 
-interface PillButtonProps extends Omit<PressableProps, 'children'> {
+interface PillButtonProps extends Omit<PressableProps, 'children' | 'style'> {
   label: string;
   variant?: PillButtonVariant;
 }
@@ -36,7 +36,6 @@ export const PillButton = ({
   variant = 'primary',
   onPressIn,
   onPressOut,
-  style,
   ...props
 }: PillButtonProps) => {
   const scale = useSharedValue(1);
@@ -69,14 +68,11 @@ export const PillButton = ({
         {...props}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={[
-          {
-            backgroundColor: isPrimary ? colors.forest : colors.burgundySoft,
-            borderColor: isPrimary ? colors.forest : colors.burgundy,
-            borderWidth: 1,
-          },
-          style,
-        ]}
+        style={{
+          backgroundColor: isPrimary ? colors.forest : colors.burgundySoft,
+          borderColor: isPrimary ? colors.forest : colors.burgundy,
+          borderWidth: 1,
+        }}
       >
         <Label style={{ color: isPrimary ? colors.white : colors.burgundy }}>
           {label}
