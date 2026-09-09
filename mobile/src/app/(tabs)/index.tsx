@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import styled from '@emotion/native';
 import type { ProgressDisplayMode } from '@where-my-books/shared';
 import { colors, spacing, typography } from '@where-my-books/ui';
@@ -6,6 +6,9 @@ import { ScreenContainer, ScreenContent, ScreenScroll } from '@where-my-books/ui
 import { VirtualShelfPreview } from '../../features/library/components/VirtualShelfPreview';
 import { CurrentReadingCard } from '../../features/reading/components/CurrentReadingCard';
 import { initialBooks, type LibraryBookPreview } from '../../features/library/mockBooks';
+import { useAuth } from '../../features/auth/AuthProvider';
+import { api } from '../../api/client';
+import { Redirect } from 'expo-router';
 
 const Content = styled(ScreenContent)({ gap: spacing.xl });
 const HeaderBlock = styled.View({});
@@ -14,9 +17,12 @@ const Hero = styled.Text({ color: colors.ink, ...typography.display, maxWidth: 3
 const Intro = styled.Text({ color: colors.inkSecondary, ...typography.body, marginTop: spacing.sm, maxWidth: 340 });
 
 export default function HomeScreen() {
+  const auth = useAuth();
   const [books, setBooks] = useState<LibraryBookPreview[]>(initialBooks);
   const [progressMode, setProgressMode] = useState<ProgressDisplayMode>('pages');
   const currentBook = useMemo(() => books.find((book) => book.status === 'reading') ?? books[0], [books]);
   const addPages = (bookId: string, pages: number) => setBooks((currentBooks) => currentBooks.map((book) => book.id === bookId ? { ...book, currentPage: Math.min(book.currentPage + pages, book.totalPages) } : book));
+  useEffect(() => { if (auth.user) api.books().then(({ books: loaded }) => setBooks(loaded.map((book) => ({ id: book.id, title: book.work.title, author: book.work.authors.map((author) => author.name).join(', '), status: book.status, currentPage: book.progress.currentPage, totalPages: book.progress.totalPages, spineColor: book.spineColor, spineWidth: book.spineWidth, spineHeight: book.spineHeight })))).catch(() => undefined); }, [auth.user]);
+  if (!auth.user) return <Redirect href="/auth/login" />;
   return <ScreenContainer edges={['top', 'left', 'right']}><ScreenScroll contentContainerStyle={{ paddingBottom: 84 }} showsVerticalScrollIndicator={false}><Content><HeaderBlock><Greeting>BOOKNOOK</Greeting><Hero>Твоя библиотека всегда рядом.</Hero><Intro>Первая живая версия виртуальной полки: прогресс виден прямо на корешках и плавно меняется вместе с чтением.</Intro></HeaderBlock><VirtualShelfPreview books={books} mode={progressMode} onChangeMode={setProgressMode} />{currentBook ? <CurrentReadingCard book={currentBook} progressMode={progressMode} onAddPages={addPages} /> : null}</Content></ScreenScroll></ScreenContainer>;
 }

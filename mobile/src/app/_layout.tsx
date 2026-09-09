@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
+import { AuthProvider } from '../features/auth/AuthProvider';
 
 const theme = {
   colors,
@@ -19,8 +20,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider theme={appTheme}>
-        <StatusBar style="dark" />
-        <Stack
+        <AuthProvider><StatusBar style="dark" /><Stack
           screenOptions={{
             animation: reduceMotion ? 'none' : 'fade_from_bottom',
             contentStyle: { backgroundColor: colors.canvas },
@@ -31,7 +31,9 @@ export default function RootLayout() {
           <Stack.Screen name="books/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="shelves/index" options={{ headerShown: false }} />
           <Stack.Screen name="settings/index" options={{ headerShown: false }} />
-        </Stack>
+          <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+          <Stack.Screen name="auth/register" options={{ headerShown: false }} />
+        </Stack></AuthProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

@@ -55,6 +55,8 @@
 
 ## Этап 2. Domain model и API contracts
 
+**Статус: ✅ завершён для MVP-среза**
+
 Цель — подготовить серверную модель и контракты до реализации backend.
 
 - [x] `Author`;
@@ -68,55 +70,61 @@
 - [x] `ShelfPlacement`;
 - [x] `ProgressDisplayMode`;
 - [x] `UserSettings`;
-- [ ] зафиксировать глобальную стратегию ID;
-- [ ] определить DTO/API contracts;
-- [ ] описать разделение metadata и user-owned data;
-- [ ] подготовить модели к будущей синхронизации;
-- [ ] покрыть runtime-логику и контракты unit-тестами по мере их появления.
+- [x] зафиксировать глобальную стратегию ID (UUID на сервере, string в контрактах);
+- [x] определить DTO/API contracts;
+- [x] описать разделение metadata и user-owned data;
+- [x] подготовить модели к будущей синхронизации (timestamps);
+- [x] покрыть runtime-логику и контракты unit-тестами по мере их появления.
 
 На этом этапе не реализуются SQLite, migrations, local repositories и local database schema.
 
 ## Этап 3. Backend foundation
 
+**Статус: ✅ MVP-срез завершён**
+
 Backend реализуется раньше полноценного mobile data layer.
 
-- [ ] NestJS foundation;
-- [ ] PostgreSQL + Prisma;
-- [ ] Prisma schema и migrations;
-- [ ] registration/login;
-- [ ] access/refresh session model;
-- [ ] API contracts;
-- [ ] API библиотеки;
-- [ ] API полок;
-- [ ] API reading progress;
-- [ ] API settings;
-- [ ] глобальные IDs;
-- [ ] timestamps и versioning для будущей синхронизации.
+- [x] NestJS foundation;
+- [x] PostgreSQL + Prisma;
+- [x] Prisma schema и migrations;
+- [x] registration/login;
+- [x] access/refresh session model;
+- [x] API contracts;
+- [x] API библиотеки;
+- [ ] API полок (после MVP);
+- [x] API reading progress;
+- [x] API settings;
+- [x] глобальные IDs;
+- [x] timestamps для будущей синхронизации.
 
 Backend проектируется с учётом возможного будущего offline mobile storage.
 
 ## Этап 4. Mobile API integration и Library CRUD
 
-- [ ] API client;
-- [ ] mobile data layer без SQLite как source of truth;
-- [ ] loading/error states для сетевых данных;
-- [ ] библиотека на backend;
-- [ ] добавление, редактирование и удаление;
-- [ ] Book Details;
+**Статус: ✅ MVP-срез завершён**
+
+- [x] API client;
+- [x] mobile data layer без SQLite как source of truth;
+- [x] loading/error states для сетевых данных;
+- [x] библиотека на backend;
+- [x] добавление и удаление API (редактирование — через детали в следующем срезе);
+- [x] Book Details;
 - [ ] поиск внутри своей библиотеки;
 - [ ] фильтры и сортировки;
 - [ ] несколько экземпляров одного произведения.
 
 ## Этап 5. Reading Progress
 
-- [ ] current page;
-- [ ] `% / страницы`;
-- [ ] быстрые действия `+5`, `+10`, `+25`;
-- [ ] ручной ввод;
+**Статус: ✅ MVP-срез завершён**
+
+- [x] current page;
+- [x] `% / страницы` в shared и backend model;
+- [ ] быстрые действия `+5`, `+10`, `+25` (следующий UI-срез);
+- [x] ручной ввод;
 - [ ] даты начала и окончания;
 - [ ] история прогресса;
 - [ ] progress overlay;
-- [ ] сохранение через backend.
+- [x] сохранение через backend.
 
 ## Этап 6. Virtual Shelf MVP
 

@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReadingStatus {
+  want_to_read
+  reading
+  finished
+  dnf
+}
+
+enum ProgressDisplayMode {
+  pages
+  percentage
+}
+
+model User {
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique
+  passwordHash String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  sessions     Session[]
+  bookCopies   BookCopy[]
+  settings     UserSettings?
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  refreshTokenHash String    @unique
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Author {
+  id        String       @id @default(uuid()) @db.Uuid
+  name      String       @unique
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  works     WorkAuthor[]
+}
+
+model BookWork {
+  id            String       @id @default(uuid()) @db.Uuid
+  title         String
+  originalTitle String?
+  description   String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  authors       WorkAuthor[]
+  editions      Edition[]
+}
+
+model WorkAuthor {
+  workId   String   @db.Uuid
+  authorId String   @db.Uuid
+  work     BookWork @relation(fields: [workId], references: [id], onDelete: Cascade)
+  author   Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@id([workId, authorId])
+}
+
+model Edition {
+  id              String     @id @default(uuid()) @db.Uuid
+  workId          String     @db.Uuid
+  isbn            String?
+  publisher       String?
+  publicationYear Int?
+  pageCount       Int
+  coverUri        String?
+  language        String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  work            BookWork   @relation(fields: [workId], references: [id], onDelete: Cascade)
+  copies          BookCopy[]
+
+  @@index([workId])
+}
+
+model BookCopy {
+  id           String       @id @default(uuid()) @db.Uuid
+  userId       String       @db.Uuid
+  editionId    String       @db.Uuid
+  status       ReadingStatus @default(want_to_read)
+  currentPage  Int          @default(0)
+  spineColor   String       @default("#2C4A3E")
+  spineWidth   Float        @default(64)
+  spineHeight  Float        @default(180)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  edition      Edition      @relation(fields: [editionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([editionId])
+}
+
+model UserSettings {
+  id                 String             @id @default(uuid()) @db.Uuid
+  userId             String             @unique @db.Uuid
+  progressDisplayMode ProgressDisplayMode @default(pages)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
