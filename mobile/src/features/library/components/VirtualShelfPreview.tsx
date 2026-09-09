@@ -5,7 +5,7 @@ import {
   getReadingProgressRatio,
   type ProgressDisplayMode,
 } from '@where-my-books/shared';
-import { BookSpine, colors, radii, spacing } from '@where-my-books/ui/native';
+import { BookSpine, colors, radii, SegmentedControl, spacing } from '@where-my-books/ui/native';
 import * as Haptics from 'expo-haptics';
 import { ScrollView } from 'react-native';
 
@@ -29,24 +29,6 @@ const Title = styled.Text({
   fontFamily: 'serif',
   fontSize: 24,
   fontWeight: '700',
-});
-
-const Toggle = styled.View({
-  backgroundColor: colors.surfaceRecessed,
-  borderRadius: radii.full,
-  flexDirection: 'row',
-  padding: 3,
-});
-
-const ToggleButton = styled.Pressable({
-  borderRadius: radii.full,
-  paddingHorizontal: 10,
-  paddingVertical: 7,
-});
-
-const ToggleLabel = styled.Text({
-  fontSize: 11,
-  fontWeight: '800',
 });
 
 const Shelf = styled.View({
@@ -99,29 +81,17 @@ export const VirtualShelfPreview = ({
 
   const changeMode = (nextMode: ProgressDisplayMode) => {
     onChangeMode(nextMode);
-    void Haptics.selectionAsync();
   };
 
   return (
     <>
       <Header>
         <Title>Моя полка</Title>
-        <Toggle>
-          <ToggleButton onPress={() => changeMode('percentage')}>
-            <ToggleLabel
-              style={{ color: mode === 'percentage' ? colors.forest : colors.inkMuted }}
-            >
-              %
-            </ToggleLabel>
-          </ToggleButton>
-          <ToggleButton onPress={() => changeMode('pages')}>
-            <ToggleLabel
-              style={{ color: mode === 'pages' ? colors.forest : colors.inkMuted }}
-            >
-              Страницы
-            </ToggleLabel>
-          </ToggleButton>
-        </Toggle>
+        <SegmentedControl
+          onChange={changeMode}
+          options={[{ label: '%', value: 'percentage' }, { label: 'Страницы', value: 'pages' }]}
+          value={mode}
+        />
       </Header>
 
       <Shelf>
