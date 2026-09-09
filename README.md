@@ -34,6 +34,12 @@ All top-level applications and packages are siblings. Nothing is nested inside a
 - Motion and micro-interactions are a core part of the product experience.
 - Private notes/quotes and public reviews are separate concepts.
 
+## Stack decisions
+
+- `mobile`: Expo + React Native + TypeScript + Expo Router + Emotion + Reanimated.
+- `client`: React + TypeScript + Vite + Emotion. Vite is the fixed web build/dev tool for fast startup and HMR.
+- `server`: NestJS + TypeScript + PostgreSQL + Prisma.
+
 ## Current development focus
 
 The first implementation target is `mobile`.
