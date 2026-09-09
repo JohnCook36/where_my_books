@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import styled from '@emotion/native';
+import type { ProgressDisplayMode } from '@where-my-books/shared';
 import { colors, spacing } from '@where-my-books/ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -53,6 +54,7 @@ const Intro = styled.Text({
 
 export default function HomeScreen() {
   const [books, setBooks] = useState<LibraryBookPreview[]>(initialBooks);
+  const [progressMode, setProgressMode] = useState<ProgressDisplayMode>('pages');
 
   const currentBook = useMemo(
     () => books.find((book) => book.status === 'reading') ?? books[0],
@@ -88,10 +90,18 @@ export default function HomeScreen() {
             </Intro>
           </HeaderBlock>
 
-          <VirtualShelfPreview books={books} />
+          <VirtualShelfPreview
+            books={books}
+            mode={progressMode}
+            onChangeMode={setProgressMode}
+          />
 
           {currentBook ? (
-            <CurrentReadingCard book={currentBook} onAddPages={addPages} />
+            <CurrentReadingCard
+              book={currentBook}
+              progressMode={progressMode}
+              onAddPages={addPages}
+            />
           ) : null}
         </Content>
       </Scroll>
