@@ -2,6 +2,7 @@ import styled from '@emotion/native';
 import {
   formatReadingProgress,
   getReadingProgressRatio,
+  type ProgressDisplayMode,
 } from '@where-my-books/shared';
 import {
   PillButton,
@@ -16,6 +17,7 @@ import type { LibraryBookPreview } from '../../library/mockBooks';
 
 interface CurrentReadingCardProps {
   book: LibraryBookPreview;
+  progressMode: ProgressDisplayMode;
   onAddPages: (bookId: string, pages: number) => void;
 }
 
@@ -47,7 +49,11 @@ const ProgressWrap = styled.View({
   marginBottom: spacing.lg,
 });
 
-export const CurrentReadingCard = ({ book, onAddPages }: CurrentReadingCardProps) => {
+export const CurrentReadingCard = ({
+  book,
+  progressMode,
+  onAddPages,
+}: CurrentReadingCardProps) => {
   const progress = {
     currentPage: book.currentPage,
     totalPages: book.totalPages,
@@ -66,7 +72,7 @@ export const CurrentReadingCard = ({ book, onAddPages }: CurrentReadingCardProps
 
       <ProgressWrap>
         <ReadingProgressBar
-          label={formatReadingProgress(progress, 'percentage')}
+          label={formatReadingProgress(progress, progressMode)}
           value={getReadingProgressRatio(progress)}
         />
       </ProgressWrap>
