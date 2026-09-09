@@ -10,6 +10,14 @@ export interface ReadingProgress {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
+const normalizeTotalPages = (totalPages: number): number =>
+  Number.isFinite(totalPages) ? Math.max(0, Math.round(totalPages)) : 0;
+
+const normalizeCurrentPage = (currentPage: number, totalPages: number): number => {
+  const safeCurrentPage = Number.isFinite(currentPage) ? Math.round(currentPage) : 0;
+  return clamp(safeCurrentPage, 0, totalPages);
+};
+
 export const getReadingProgressRatio = ({
   currentPage,
   totalPages,
@@ -33,7 +41,7 @@ export const formatReadingProgress = (
     return `${getReadingProgressPercent(progress)}%`;
   }
 
-  const totalPages = Math.max(0, Math.round(progress.totalPages));
-  const currentPage = clamp(Math.round(progress.currentPage), 0, totalPages);
+  const totalPages = normalizeTotalPages(progress.totalPages);
+  const currentPage = normalizeCurrentPage(progress.currentPage, totalPages);
   return `${currentPage} / ${totalPages}`;
 };

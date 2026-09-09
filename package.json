@@ -17,6 +17,7 @@
     "android": "npm --workspace @where-my-books/mobile run android",
     "ios": "npm --workspace @where-my-books/mobile run ios",
     "lint": "npm run lint --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   }
 }
