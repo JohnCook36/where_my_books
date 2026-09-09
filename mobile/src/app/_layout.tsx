@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useReducedMotion } from 'react-native-reanimated';
+import { DatabaseProvider } from '../db';
 
 const theme = {
   colors,
@@ -19,7 +20,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider theme={appTheme}>
         <StatusBar style="dark" />
-        <Stack
+        <DatabaseProvider>
+          <Stack
           screenOptions={{
             animation: 'fade_from_bottom',
             contentStyle: { backgroundColor: colors.canvas },
@@ -30,7 +32,8 @@ export default function RootLayout() {
           <Stack.Screen name="books/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="shelves/index" options={{ headerShown: false }} />
           <Stack.Screen name="settings/index" options={{ headerShown: false }} />
-        </Stack>
+          </Stack>
+        </DatabaseProvider>
       </ThemeProvider>
     </GestureHandlerRootView>
   );

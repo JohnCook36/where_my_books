@@ -1,3 +1,5 @@
-import { AppHeader, EmptyState, ScreenContainer, ScreenContent } from '@where-my-books/ui/native';
+import { AppHeader, EmptyState, ErrorState, LoadingState, ScreenContainer, ScreenContent } from '@where-my-books/ui/native';
 import { useLocalSearchParams } from 'expo-router';
-export default function BookDetailsScreen() { const { id } = useLocalSearchParams<{ id: string }>(); return <ScreenContainer><ScreenContent><AppHeader back title="Книга" subtitle={`ID: ${id ?? 'неизвестно'}`} /><EmptyState title="Детали книги" message="Данные будут загружаться из локального хранилища на Этапе 2." /></ScreenContent></ScreenContainer>; }
+import { useBookDetails } from '../../features/library/hooks/useBookDetails';
+import { formatReadingProgress } from '@where-my-books/shared';
+export default function BookDetailsScreen() { const { id } = useLocalSearchParams<{ id: string }>(); const { book, error, isLoading } = useBookDetails(id ?? ''); if (isLoading) return <ScreenContainer><LoadingState /></ScreenContainer>; if (error) return <ScreenContainer><ErrorState message={error.message} /></ScreenContainer>; if (!book) return <ScreenContainer><EmptyState title="Книга не найдена" /></ScreenContainer>; return <ScreenContainer><ScreenContent><AppHeader back title={book.work.title} {...(book.work.authors[0] ? { subtitle: book.work.authors[0].name } : {})} /><EmptyState title={book.status} message={`${formatReadingProgress(book.progress, 'pages')} · ${book.edition.pageCount} страниц`} /></ScreenContent></ScreenContainer>; }
