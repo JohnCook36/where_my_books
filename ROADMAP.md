@@ -6,12 +6,10 @@
 2. Переиспользуемые UI-компоненты и design/motion tokens выносим в `ui`.
 3. Чистые типы, доменную логику, контракты и утилиты выносим в `shared`.
 4. `client`, `server`, `mobile`, `ui`, `shared` остаются соседними top-level workspace.
-5. Крупные изменения проверяем через `npm run typecheck`, `npm run lint` и `npm run test`.
+5. Крупные изменения проверяем через `npm run typecheck` и `npm run lint`.
 6. Баги уже реализованного функционала можно исправлять вне очереди, если они блокируют работу.
 7. Если работа не относится к текущему этапу, явно обозначаем: `⚠️ Это отход от roadmap`.
 8. Плавность, микровзаимодействия и тактильность являются частью функциональности.
-9. Новая бизнес-логика в `shared` и `server` должна сопровождаться unit-тестами там, где поведение можно проверить детерминированно.
-10. Исправление воспроизводимого бага по возможности сопровождается regression test, чтобы ошибка не вернулась.
 
 ## Архитектурное правило данных
 
@@ -19,7 +17,7 @@
 
 ## Этап 0. Фундамент проекта
 
-**Статус: ✅ завершён**
+**Статус: 🔄 почти завершён**
 
 - [x] monorepo/workspaces;
 - [x] соседние `mobile`, `client`, `server`, `ui`, `shared`;
@@ -28,13 +26,10 @@
 - [x] базовые design и motion tokens;
 - [x] shared-логика расчёта прогресса;
 - [x] первый прототип виртуальной полки;
-- [x] локальный Android development build;
-- [x] Vitest foundation для `shared` и `npm run test` в CI;
-- [x] Expo/RN-зависимости приведены к совместимым версиям;
-- [x] чистая установка зависимостей;
-- [x] `expo-doctor`: 21/21;
-- [x] `npm run test`: 16/16;
-- [x] CI проверяет install, typecheck, lint и tests.
+- [x] локальный Android development build.
+- [ ] привести Expo/RN-зависимости к рекомендованным версиям;
+- [ ] чистая установка зависимостей;
+- [ ] финальная проверка `expo-doctor`.
 
 ## Этап 1. App Shell, навигация и дизайн-система
 
@@ -46,7 +41,7 @@
 - [x] `ScreenContainer`, `AppHeader`, `BackButton`;
 - [x] `SegmentedControl`, Loading/Empty/Error states;
 - [x] typography tokens;
-- [x] Reduce Motion для stack-переходов и ключевых Reanimated-компонентов;
+- [x] Reduce Motion foundation;
 - [x] текущая virtual shelf, текущая книга и progress overlay;
 - [x] переключение `% / Страницы`;
 - [x] `+10 страниц`, анимации и haptics.
@@ -71,8 +66,7 @@
 - [ ] зафиксировать глобальную стратегию ID;
 - [ ] определить DTO/API contracts;
 - [ ] описать разделение metadata и user-owned data;
-- [ ] подготовить модели к будущей синхронизации;
-- [ ] покрыть runtime-логику и контракты unit-тестами по мере их появления.
+- [ ] подготовить модели к будущей синхронизации.
 
 На этом этапе не реализуются SQLite, migrations, local repositories и local database schema.
 
