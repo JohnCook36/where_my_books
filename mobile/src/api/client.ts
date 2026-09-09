@@ -1,13 +1,36 @@
 import type { AuthResponse, RefreshResponse } from '@where-my-books/shared';
+import * as SecureStore from 'expo-secure-store';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000/api';
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
+const SESSION_KEY = 'where-my-books.session';
 
 export const tokenStore = {
   get refresh() { return refreshToken; },
-  set(tokens: { accessToken: string; refreshToken: string }) { accessToken = tokens.accessToken; refreshToken = tokens.refreshToken; },
-  clear() { accessToken = null; refreshToken = null; },
+  async hydrate() {
+    const raw = await SecureStore.getItemAsync(SESSION_KEY);
+    if (!raw) return false;
+    try {
+      const tokens = JSON.parse(raw) as { accessToken: string; refreshToken: string };
+      accessToken = tokens.accessToken;
+      refreshToken = tokens.refreshToken;
+      return true;
+    } catch {
+      await this.clear();
+      return false;
+    }
+  },
+  async set(tokens: { accessToken: string; refreshToken: string }) {
+    accessToken = tokens.accessToken;
+    refreshToken = tokens.refreshToken;
+    await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(tokens));
+  },
+  async clear() {
+    accessToken = null;
+    refreshToken = null;
+    await SecureStore.deleteItemAsync(SESSION_KEY);
+  },
 };
 
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
@@ -19,10 +42,10 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
     const refreshed = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
     if (refreshed.ok) {
       const tokens = await refreshed.json() as RefreshResponse;
-      tokenStore.set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
+      await tokenStore.set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
       return request<T>(path, init, false);
     }
-    tokenStore.clear();
+    await tokenStore.clear();
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { message?: string } | null;
@@ -41,5 +64,8 @@ export const api = {
   addBook: (body: { title: string; author: string; totalPages: number }) => request<import('@where-my-books/shared').BookDetailsResponse>('/books', { method: 'POST', body: JSON.stringify(body) }),
   updateStatus: (id: string, status: import('@where-my-books/shared').ReadingStatus) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   updateProgress: (id: string, currentPage: number) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}/progress`, { method: 'PATCH', body: JSON.stringify({ currentPage }) }),
+  updateBook: (id: string, body: { title?: string; author?: string; totalPages?: number }) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteBook: (id: string) => request<void>(`/books/${id}`, { method: 'DELETE' }),
+  settings: () => request<import('@where-my-books/shared').UserSettingsResponse>('/settings'),
+  updateSettings: (progressDisplayMode: import('@where-my-books/shared').ProgressDisplayMode) => request<import('@where-my-books/shared').UserSettingsResponse>('/settings', { method: 'PATCH', body: JSON.stringify({ progressDisplayMode }) }),
 };

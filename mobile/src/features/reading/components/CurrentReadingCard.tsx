@@ -13,7 +13,7 @@ import {
 } from '@where-my-books/ui/native';
 import * as Haptics from 'expo-haptics';
 
-import type { LibraryBookPreview } from '../../library/mockBooks';
+import type { LibraryBookPreview } from '../../library/types';
 
 interface CurrentReadingCardProps {
   book: LibraryBookPreview;

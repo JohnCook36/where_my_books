@@ -9,7 +9,7 @@ import { BookSpine, colors, radii, SegmentedControl, spacing } from '@where-my-b
 import * as Haptics from 'expo-haptics';
 import { ScrollView } from 'react-native';
 
-import type { LibraryBookPreview } from '../mockBooks';
+import type { LibraryBookPreview } from '../types';
 
 interface VirtualShelfPreviewProps {
   books: LibraryBookPreview[];

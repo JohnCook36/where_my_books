@@ -33,12 +33,19 @@ export class BooksService {
   async update(userId: string, id: string, dto: UpdateBookRequest): Promise<LibraryBookResponse> {
     const current = await this.owned(userId, id);
     const data: Prisma.BookWorkUpdateInput = {};
-    if (dto.title !== undefined) data.title = dto.title.trim();
+    if (dto.title !== undefined) {
+      const title = dto.title.trim();
+      if (!title) throw new BadRequestException('Title cannot be blank');
+      data.title = title;
+    }
+    if (dto.author !== undefined && !dto.author.trim()) throw new BadRequestException('Author cannot be blank');
+    if (dto.totalPages !== undefined && dto.totalPages < current.currentPage) throw new BadRequestException('totalPages cannot be less than currentPage');
     await this.prisma.$transaction(async (tx) => {
       if (Object.keys(data).length > 0) await tx.bookWork.update({ where: { id: current.edition.workId }, data });
       if (dto.totalPages !== undefined) await tx.edition.update({ where: { id: current.editionId }, data: { pageCount: dto.totalPages } });
       if (dto.author !== undefined) {
-        const author = await tx.author.upsert({ where: { name: dto.author.trim() }, create: { name: dto.author.trim() }, update: {} });
+        const authorName = dto.author.trim();
+        const author = await tx.author.upsert({ where: { name: authorName }, create: { name: authorName }, update: {} });
         await tx.workAuthor.deleteMany({ where: { workId: current.edition.workId } });
         await tx.workAuthor.create({ data: { workId: current.edition.workId, authorId: author.id } });
       }

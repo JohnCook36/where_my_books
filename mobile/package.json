@@ -8,7 +8,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit --project tsconfig.json"
   },
   "dependencies": {
     "@emotion/native": "^11.11.0",
@@ -18,6 +18,7 @@
     "expo": "~57.0.10",
     "expo-haptics": "~57.0.2",
     "expo-router": "~57.0.10",
+    "expo-secure-store": "~15.0.7",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.3",

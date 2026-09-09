@@ -42,3 +42,15 @@ describe('formatReadingProgress edge cases', () => {
     expect(formatReadingProgress({ currentPage: Number.NaN, totalPages: Number.POSITIVE_INFINITY }, 'pages')).toBe('0 / 0');
   });
 });
+
+describe('reading progress invariants', () => {
+  it('returns zero for a zero current page', () => expect(getReadingProgressRatio({ currentPage: 0, totalPages: 604 })).toBe(0));
+  it('returns one for a completed book', () => expect(getReadingProgressRatio({ currentPage: 604, totalPages: 604 })).toBe(1));
+  it('rounds a fractional percentage', () => expect(getReadingProgressPercent({ currentPage: 1, totalPages: 3 })).toBe(33));
+  it('returns zero percent for an empty progress', () => expect(getReadingProgressPercent({ currentPage: 0, totalPages: 604 })).toBe(0));
+  it('returns one hundred percent at the end', () => expect(getReadingProgressPercent({ currentPage: 604, totalPages: 604 })).toBe(100));
+  it('formats a completed page count', () => expect(formatReadingProgress({ currentPage: 604, totalPages: 604 }, 'pages')).toBe('604 / 604'));
+  it('formats an empty page count', () => expect(formatReadingProgress({ currentPage: 0, totalPages: 604 }, 'pages')).toBe('0 / 604'));
+  it('formats zero percentage', () => expect(formatReadingProgress({ currentPage: 0, totalPages: 604 }, 'percentage')).toBe('0%'));
+  it('formats one hundred percentage', () => expect(formatReadingProgress({ currentPage: 604, totalPages: 604 }, 'percentage')).toBe('100%'));
+});

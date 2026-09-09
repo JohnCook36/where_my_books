@@ -16,4 +16,16 @@ describe('BooksService ownership and progress rules', () => {
     const service = new BooksService(prisma as never);
     await expect(service.get('owner', 'copy')).rejects.toBeInstanceOf(ForbiddenException);
   });
+
+  it('rejects reducing total pages below saved progress', async () => {
+    const prisma = { bookCopy: { findUnique: vi.fn().mockResolvedValue({ ...book, currentPage: 80, editionId: 'edition', edition: { pageCount: 100, workId: 'work' } }) } };
+    const service = new BooksService(prisma as never);
+    await expect(service.update('owner', 'copy', { totalPages: 79 })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('rejects whitespace-only title updates', async () => {
+    const prisma = { bookCopy: { findUnique: vi.fn().mockResolvedValue(book) } };
+    const service = new BooksService(prisma as never);
+    await expect(service.update('owner', 'copy', { title: '   ' })).rejects.toBeInstanceOf(BadRequestException);
+  });
 });

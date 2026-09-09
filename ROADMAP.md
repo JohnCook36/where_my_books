@@ -80,7 +80,7 @@
 
 ## Этап 3. Backend foundation
 
-**Статус: ✅ MVP-срез завершён**
+**Статус: 🟡 foundation готов, acceptance MVP в работе**
 
 Backend реализуется раньше полноценного mobile data layer.
 
@@ -101,7 +101,7 @@ Backend проектируется с учётом возможного буду
 
 ## Этап 4. Mobile API integration и Library CRUD
 
-**Статус: ✅ MVP-срез завершён**
+**Статус: 🟡 MVP-срез в работе**
 
 - [x] API client;
 - [x] mobile data layer без SQLite как source of truth;
@@ -115,7 +115,7 @@ Backend проектируется с учётом возможного буду
 
 ## Этап 5. Reading Progress
 
-**Статус: ✅ MVP-срез завершён**
+**Статус: 🟡 MVP-срез в работе**
 
 - [x] current page;
 - [x] `% / страницы` в shared и backend model;
