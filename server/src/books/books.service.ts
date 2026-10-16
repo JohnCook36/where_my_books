@@ -23,6 +23,19 @@ export class BooksService {
   }
 
   async create(userId: string, dto: CreateBookRequest): Promise<LibraryBookResponse> {
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.clientRequestId) {
+        await lockCopyOperation(tx, userId, dto.clientRequestId);
+        const staged = await tx.scanDraft.findFirst({ where: { id: dto.clientRequestId, userId }, select: { payload: true } });
+        if (staged?.payload) throw new ConflictException('Сохранённый черновик нужно подтвердить с актуальной ревизией через очередь.');
+      }
+      return this.createInTransaction(userId, dto, tx);
+    });
+  }
+
+  /** Call with an existing transaction when confirming a persisted review snapshot. */
+  async createInTransaction(userId: string, dto: CreateBookRequest, tx: Prisma.TransactionClient): Promise<LibraryBookResponse> {
+    if (dto.clientRequestId) await lockCopyOperation(tx, userId, dto.clientRequestId);
     const title = dto.title.trim();
     const authorName = dto.author.trim();
     if (!title || !authorName || dto.totalPages < 0) throw new BadRequestException('Title, author and totalPages are required');
@@ -37,34 +50,23 @@ export class BooksService {
       return this.toResponse(existing);
     };
     if (dto.clientRequestId) {
-      const existing = await this.prisma.bookCopy.findUnique({ where: { userId_clientRequestId: { userId, clientRequestId: dto.clientRequestId } }, include });
+      const existing = await tx.bookCopy.findUnique({ where: { userId_clientRequestId: { userId, clientRequestId: dto.clientRequestId } }, include });
       if (existing) return replay(existing);
     }
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        let editionId = dto.editionId;
-        if (editionId) {
-          const ownCopy = await tx.bookCopy.findFirst({ where: { userId, editionId } });
-          if (!ownCopy) throw new NotFoundException('Издание не найдено в вашей библиотеке');
-        } else {
-          const names = this.authorNames(dto.authors ?? [authorName]);
-          const authors = await Promise.all(names.map((name) => tx.author.upsert({ where: { name }, create: { name }, update: {} })));
-          const work = await tx.bookWork.create({ data: { title, description: dto.description ?? null, authors: { create: authors.map((a) => ({ authorId: a.id })) } } });
-          const edition = await tx.edition.create({ data: { workId: work.id, pageCount: dto.totalPages, isbn: isbn ?? null, publisher: dto.publisher ?? null, publicationYear: dto.publicationYear ?? null, language: dto.language ?? null, catalogSource: dto.catalogSource ?? null, externalId: dto.externalId ?? null, coverUri } });
-          editionId = edition.id;
-        }
-        const copy = await tx.bookCopy.create({ data: { userId, editionId, clientRequestId: dto.clientRequestId ?? null, requestHash, coverUri }, include });
-        if (dto.clientRequestId) await tx.scanDraft.deleteMany({ where: { id: dto.clientRequestId, userId } });
-        return this.toResponse(copy);
-      });
-    } catch (error) {
-      // Concurrent replays: unique key rolls back the losing entire transaction.
-      if (dto.clientRequestId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-        const existing = await this.prisma.bookCopy.findUnique({ where: { userId_clientRequestId: { userId, clientRequestId: dto.clientRequestId } }, include });
-        if (existing) return replay(existing);
-      }
-      throw error;
+    let editionId = dto.editionId;
+    if (editionId) {
+      const ownCopy = await tx.bookCopy.findFirst({ where: { userId, editionId } });
+      if (!ownCopy) throw new NotFoundException('Издание не найдено в вашей библиотеке');
+    } else {
+      const names = this.authorNames(dto.authors ?? [authorName]);
+      const authors = await Promise.all(names.map((name) => tx.author.upsert({ where: { name }, create: { name }, update: {} })));
+      const work = await tx.bookWork.create({ data: { title, description: dto.description ?? null, authors: { create: authors.map((a) => ({ authorId: a.id })) } } });
+      const edition = await tx.edition.create({ data: { workId: work.id, pageCount: dto.totalPages, isbn: isbn ?? null, publisher: dto.publisher ?? null, publicationYear: dto.publicationYear ?? null, language: dto.language ?? null, catalogSource: dto.catalogSource ?? null, externalId: dto.externalId ?? null, coverUri } });
+      editionId = edition.id;
     }
+    const copy = await tx.bookCopy.create({ data: { userId, editionId, clientRequestId: dto.clientRequestId ?? null, requestHash, coverUri }, include });
+    if (dto.clientRequestId) await tx.scanDraft.deleteMany({ where: { id: dto.clientRequestId, userId } });
+    return this.toResponse(copy);
   }
 
   async update(userId: string, id: string, dto: UpdateBookRequest): Promise<LibraryBookResponse> {
@@ -140,4 +142,9 @@ export class BooksService {
       edition: { id: book.edition.id, workId: book.edition.workId, pageCount: book.edition.pageCount, ...(book.edition.isbn ? { isbn: book.edition.isbn } : {}), ...(book.edition.publisher ? { publisher: book.edition.publisher } : {}), ...(book.edition.publicationYear ? { publicationYear: book.edition.publicationYear } : {}), ...(book.edition.coverUri ? { coverUri: book.edition.coverUri } : {}), ...(book.edition.catalogSource ? { catalogSource: book.edition.catalogSource } : {}), ...(book.edition.externalId ? { externalId: book.edition.externalId } : {}), ...(book.edition.language ? { language: book.edition.language } : {}), createdAt: book.edition.createdAt.toISOString(), updatedAt: book.edition.updatedAt.toISOString() },
     };
   }
+}
+
+/** One key for direct POST replay, review editing, deletion and batch confirmation. */
+export async function lockCopyOperation(tx: Prisma.TransactionClient, userId: string, operationId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`${userId}:${operationId}`}))`;
 }

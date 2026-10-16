@@ -1,4 +1,4 @@
-import type { AuthResponse, RefreshResponse, CatalogLookupResponse, ScanDraft, CreateBookRequest, UpdateBookRequest } from '@where-my-books/shared';
+import type { AuthResponse, RefreshResponse, CatalogLookupResponse, ScanDraft, CreateBookRequest, UpdateBookRequest, UpdateScanDraftRequest, ConfirmScanDraftItem, ConfirmScanDraftsResponse } from '@where-my-books/shared';
 import * as SecureStore from 'expo-secure-store';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000/api';
@@ -33,6 +33,10 @@ export const tokenStore = {
   },
 };
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) { super(message); }
+}
+
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
@@ -49,7 +53,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { message?: string } | null;
-    throw new Error(body?.message ?? `Request failed (${response.status})`);
+    throw new ApiError(Array.isArray(body?.message) ? body.message.join('; ') : body?.message ?? `Request failed (${response.status})`, response.status);
   }
   return response.status === 204 ? (undefined as T) : response.json() as Promise<T>;
 }
@@ -61,6 +65,9 @@ export const api = {
   logout: () => request<void>('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
   catalog: (isbn: string, signal?: AbortSignal) => request<CatalogLookupResponse>(`/catalog?isbn=${encodeURIComponent(isbn)}`, signal ? { signal } : {}),
   scanDrafts: () => request<{ drafts: ScanDraft[] }>('/scan-drafts'),
+  scanDraft: (id: string) => request<ScanDraft>(`/scan-drafts/${id}`),
+  updateScanDraft: (id: string, body: UpdateScanDraftRequest) => request<ScanDraft>(`/scan-drafts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  confirmScanDrafts: (items: ConfirmScanDraftItem[]) => request<ConfirmScanDraftsResponse>('/scan-drafts/confirm', { method: 'POST', body: JSON.stringify({ items }) }),
   addScanDraft: (isbn: string) => request<ScanDraft>('/scan-drafts', { method: 'POST', body: JSON.stringify({ isbn }) }),
   removeScanDraft: (id: string) => request<void>(`/scan-drafts/${id}`, { method: 'DELETE' }),
   books: () => request<{ books: import('@where-my-books/shared').LibraryBookResponse[] }>('/books'),

@@ -1,6 +1,7 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Post, Query, Patch, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { IsString, MaxLength } from 'class-validator';
-import { isbn13 } from '@where-my-books/shared';
+import { ScanDraftsService } from './scan-drafts.service.js';
+import { ConfirmScanDraftsDto, UpdateScanDraftDto } from './scan-drafts.dto.js';
 import { CatalogService } from './catalog.service.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import type { AccessTokenPayload } from '../auth/auth.types.js';
@@ -13,7 +14,7 @@ class ScanIsbnDto { @IsString() @MaxLength(32) isbn!: string }
 @Controller()
 export class CatalogController {
   private readonly windows = new Map<string, { start: number; requests: number }>();
-  constructor(private readonly catalog: CatalogService, private readonly prisma: PrismaService) {}
+  constructor(private readonly catalog: CatalogService, private readonly prisma: PrismaService, private readonly scanDrafts: ScanDraftsService) {}
   @Get('catalog')
   async lookup(@CurrentUser() user: AccessTokenPayload, @Query('isbn') input: string) {
     if (typeof input !== 'string' || input.length > 32) throw new BadRequestException('Введите ISBN');
@@ -27,25 +28,15 @@ export class CatalogController {
     return { ...result, existingCopies: copies.map((copy) => ({ id: copy.id, title: copy.edition.work.title })) };
   }
   @Get('scan-drafts')
-  async drafts(@CurrentUser() user: AccessTokenPayload) {
-    return { drafts: await this.prisma.scanDraft.findMany({ where: { userId: user.sub }, orderBy: { createdAt: 'asc' } }) };
-  }
+  drafts(@CurrentUser() user: AccessTokenPayload) { return this.scanDrafts.list(user.sub); }
+  @Get('scan-drafts/:id')
+  draft(@CurrentUser() user: AccessTokenPayload, @Param('id', new ParseUUIDPipe()) id: string) { return this.scanDrafts.get(user.sub, id); }
   @Post('scan-drafts')
-  async addDraft(@CurrentUser() user: AccessTokenPayload, @Body() dto: ScanIsbnDto) {
-    const isbn = isbn13(dto.isbn);
-    if (!isbn) throw new BadRequestException('Некорректный ISBN');
-    // Serialize per-user staging limit + dedup across devices.
-    return this.prisma.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${user.sub}))`;
-      const existing = await tx.scanDraft.findUnique({ where: { userId_isbn: { userId: user.sub, isbn } } });
-      if (existing) return existing;
-      if (await tx.scanDraft.count({ where: { userId: user.sub } }) >= 50) throw new BadRequestException('В очереди уже 50 книг. Подтвердите их перед продолжением.');
-      return tx.scanDraft.create({ data: { userId: user.sub, isbn } });
-    });
-  }
+  addDraft(@CurrentUser() user: AccessTokenPayload, @Body() dto: ScanIsbnDto) { return this.scanDrafts.add(user.sub, dto.isbn); }
+  @Patch('scan-drafts/:id')
+  updateDraft(@CurrentUser() user: AccessTokenPayload, @Param('id', new ParseUUIDPipe()) id: string, @Body() dto: UpdateScanDraftDto) { return this.scanDrafts.update(user.sub, id, dto); }
+  @Post('scan-drafts/confirm')
+  confirmDrafts(@CurrentUser() user: AccessTokenPayload, @Body() dto: ConfirmScanDraftsDto) { return this.scanDrafts.confirm(user.sub, dto.items); }
   @Delete('scan-drafts/:id')
-  async removeDraft(@CurrentUser() user: AccessTokenPayload, @Param('id', new ParseUUIDPipe()) id: string) {
-    await this.prisma.scanDraft.deleteMany({ where: { id, userId: user.sub } });
-    return { removed: true };
-  }
+  removeDraft(@CurrentUser() user: AccessTokenPayload, @Param('id', new ParseUUIDPipe()) id: string) { return this.scanDrafts.remove(user.sub, id); }
 }

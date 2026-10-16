@@ -28,3 +28,7 @@ See [catalog QA and acceptance](../docs/ISBN-CATALOG-QA.md). `GET /api/catalog?i
 Run `npm ci` from the repository root. Build shared before the server: `npm run build --workspace @where-my-books/shared`, then `npm run build --workspace @where-my-books/server`. The shared package now has a compiled ESM entrypoint shared by Node and Metro, with source TypeScript declarations.
 
 For integration testing, apply migrations on a disposable PostgreSQL DB, then set `DATABASE_URL` and `WMB_INTEGRATION_TEST=1` and run `npm run test:integration --workspace @where-my-books/server`. The HTTP suite creates its own test accounts and checks concurrent idempotency, ownership, independent copies, ISBN/cover persistence, unknown pages, queue deduplication and API restart. CI supplies PostgreSQL 17.
+
+### Persisted review and batch confirmation
+
+`GET/PATCH /api/scan-drafts/:id` now restores/persists partial review snapshots. PATCH requires `baseRevision`, `reviewed` and a nested validated `payload`; an identical lost-response replay is safe, and a stale divergent update returns 409. `POST /api/scan-drafts/confirm` accepts 1–50 `{id, revision}` items and returns a per-item receipt or error. Only explicitly reviewed snapshots are converted to copies. Each item commits separately, so other books survive a failed transaction. Editing, deletion and confirmation use the same per-user operation lock. See [protocol and acceptance](../docs/SCAN-BATCH-REVIEW.md).

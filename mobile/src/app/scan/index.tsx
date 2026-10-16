@@ -19,8 +19,11 @@ export default function ScanScreen() {
   const [message, setMessage] = useState('Наведите камеру на книжный штрихкод 978 или 979.');
   const [count, setCount] = useState(0); const [failed, setFailed] = useState(false);
   const locked = useRef(false); const seen = useRef(new Set<string>());
-  useFocusEffect(useCallback(() => { setFocused(true); return () => setFocused(false); }, []));
-  useEffect(() => { void api.scanDrafts().then(({ drafts }) => { setCount(drafts.length); seen.current = new Set(drafts.map((draft) => draft.isbn)); }).catch(() => setMessage('Не удалось загрузить очередь. Проверьте соединение.')); }, []);
+  useFocusEffect(useCallback(() => {
+    let current = true; setFocused(true);
+    void api.scanDrafts().then(({ drafts }) => { if (current) { setCount(drafts.length); seen.current = new Set(drafts.map((draft) => draft.isbn)); } }).catch(() => { if (current) setMessage('Не удалось загрузить очередь. Проверьте соединение.'); });
+    return () => { current = false; setFocused(false); };
+  }, []));
   useEffect(() => { const subscription = AppState.addEventListener('change', (state) => { setActive(state === 'active'); if (state === 'active') void getPermission(); }); return () => subscription.remove(); }, [getPermission]);
   const scanned = async ({ data }: BarcodeScanningResult) => {
     if (locked.current) return;

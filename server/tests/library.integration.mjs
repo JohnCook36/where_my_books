@@ -63,7 +63,66 @@ try {
   assert.equal((await call('/scan-drafts', { token: a.accessToken })).drafts.length, 0);
   await call(`/scan-drafts/${draft.id}`, { token: a.accessToken, method: 'DELETE' });
   assert.equal((await call('/scan-drafts', { token: a.accessToken })).drafts.length, 0);
-  console.log('PASS: PostgreSQL/HTTP auth, ownership, CRUD, ISBN/cover persistence, concurrent replay, independent copies, progress bounds, durable queue and API restart');
+  const beforeBatch = (await call('/books', { token: a.accessToken })).books.length;
+  const draftOne = await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: '9780140328721' } });
+  const draftTwo = await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: '9780261103573' } });
+  const draftThree = await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: payload.isbn } });
+  const partial = { baseRevision: 0, reviewed: false, payload: { title: 'Edited draft' } };
+  const partialSaved = await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', body: partial });
+  assert.equal(partialSaved.revision, 1);
+  assert.equal((await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', body: partial })).revision, 1);
+  await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', status: 409, body: { ...partial, payload: { title: 'Stale change' } } });
+  await call(`/scan-drafts/${draftOne.id}`, { token: b.accessToken, status: 404 });
+  await call(`/scan-drafts/${draftOne.id}`, { token: b.accessToken, method: 'PATCH', status: 404, body: partial });
+  await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { baseRevision: 1, reviewed: true, payload: { title: 'Missing author' } } });
+  await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { baseRevision: 1, reviewed: false, payload: null } });
+  await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { baseRevision: 1, reviewed: false, payload: { title: null } } });
+  await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { baseRevision: 1, reviewed: false, payload: { clientRequestId: draftTwo.id } } });
+  await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { baseRevision: 1, reviewed: false, payload: { isbn: '9780261103573' } } });
+  await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { baseRevision: 1, reviewed: false, payload: { coverUri: 'https://127.0.0.1/private' } } });
+  const reviewedPayload = { title: 'Personal review snapshot', author: 'Author A; Author B', authors: ['Author A', 'Author B'], totalPages: 0, coverUri: payload.coverUri, catalogSource: 'open_library', externalId: '/books/TEST-REVIEW', publisher: 'Edited publisher' };
+  const reviewedOne = await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', body: { baseRevision: 1, reviewed: true, payload: reviewedPayload } });
+  const reviewedThree = await call(`/scan-drafts/${draftThree.id}`, { token: a.accessToken, method: 'PATCH', body: { baseRevision: 0, reviewed: true, payload: { title: 'Third book', author: 'Batch author', totalPages: 100 } } });
+  await call('/books', { token: a.accessToken, method: 'POST', status: 409, body: { ...payload, clientRequestId: draftOne.id } });
+  await stop(); await start();
+  const persistedReview = await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken });
+  assert.deepEqual(persistedReview.payload, reviewedPayload); assert.equal(persistedReview.revision, reviewedOne.revision); assert.equal(persistedReview.reviewed, true);
+  const batchItems = [{ id: draftOne.id, revision: 1 }, { id: draftTwo.id, revision: 0 }, { id: draftThree.id, revision: reviewedThree.revision }];
+  const partialBatch = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: batchItems } });
+  assert.deepEqual(partialBatch.results.map((r) => r.status), ['conflict', 'invalid', 'saved']);
+  const replayedBatch = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: batchItems } });
+  assert.equal(replayedBatch.results[2].copyId, partialBatch.results[2].copyId);
+  assert.equal((await call('/books', { token: a.accessToken })).books.length, beforeBatch + 1);
+  const finalItems = [{ id: draftOne.id, revision: reviewedOne.revision }, { id: draftThree.id, revision: reviewedThree.revision }];
+  const [batchA, batchB] = await Promise.all([1, 2].map(() => call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: finalItems } })));
+  assert.deepEqual(batchA.results, batchB.results); assert.ok(batchA.results.every((r) => r.status === 'saved'));
+  const snapshotCopy = await call(`/books/${batchA.results[0].copyId}`, { token: a.accessToken });
+  assert.equal(snapshotCopy.work.title, reviewedPayload.title); assert.equal(snapshotCopy.coverUri, reviewedPayload.coverUri); assert.equal(snapshotCopy.edition.externalId, reviewedPayload.externalId);
+  assert.equal((await call('/books', { token: a.accessToken })).books.length, beforeBatch + 2);
+  assert.deepEqual((await call('/scan-drafts', { token: a.accessToken })).drafts.map((d) => d.id), [draftTwo.id]);
+  const deniedBatch = await call('/scan-drafts/confirm', { token: b.accessToken, method: 'POST', status: 201, body: { items: finalItems } });
+  assert.ok(deniedBatch.results.every((r) => r.status === 'not_found' && !r.copyId));
+  await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 400, body: { items: [finalItems[0], finalItems[0]] } });
+  await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 400, body: { items: [] } });
+  await call(`/scan-drafts/${draftOne.id}`, { token: a.accessToken, method: 'PATCH', status: 404, body: partial });
+  // Force a real PostgreSQL failure after metadata creation, then verify rollback and row isolation.
+  const blockedDraft = await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: '9780140328721' } });
+  const allowedDraft = await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: payload.isbn } });
+  const blockedReady = await call(`/scan-drafts/${blockedDraft.id}`, { token: a.accessToken, method: 'PATCH', body: { baseRevision: 0, reviewed: true, payload: { title: 'Must roll back', author: `Rollback-only author ${randomUUID()}`, totalPages: 10 } } });
+  const allowedReady = await call(`/scan-drafts/${allowedDraft.id}`, { token: a.accessToken, method: 'PATCH', body: { baseRevision: 0, reviewed: true, payload: { title: 'Survives another failure', author: 'Author A', totalPages: 10 } } });
+  const worksBefore = await prisma.bookWork.count(); const editionsBefore = await prisma.edition.count();
+  // UUID is generated by this test. This DDL only runs on its explicitly opted-in disposable DB.
+  await prisma.$executeRawUnsafe(`ALTER TABLE "BookCopy" ADD CONSTRAINT "WmbIntegrationRejectCopy" CHECK ("clientRequestId" IS DISTINCT FROM '${blockedDraft.id}'::uuid)`);
+  try {
+    const failedBatch = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: [{ id: blockedDraft.id, revision: blockedReady.revision }, { id: allowedDraft.id, revision: allowedReady.revision }] } });
+    assert.deepEqual(failedBatch.results.map((r) => r.status), ['failed', 'saved']);
+    assert.equal(await prisma.bookWork.count(), worksBefore + 1); assert.equal(await prisma.edition.count(), editionsBefore + 1);
+    assert.equal((await call(`/scan-drafts/${blockedDraft.id}`, { token: a.accessToken })).reviewed, true);
+  } finally { await prisma.$executeRawUnsafe('ALTER TABLE "BookCopy" DROP CONSTRAINT IF EXISTS "WmbIntegrationRejectCopy"'); }
+  const retryFailed = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: [{ id: blockedDraft.id, revision: blockedReady.revision }] } });
+  assert.equal(retryFailed.results[0].status, 'saved');
+  console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay and API restart');
+
 } finally {
   await stop();
   await prisma.user.deleteMany({ where: { id: { in: users } } });
