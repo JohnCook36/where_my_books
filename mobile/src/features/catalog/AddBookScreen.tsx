@@ -37,8 +37,8 @@ export function AddBookScreen({ initialIsbn = '', initialDraft, onReloadDraft }:
     setResult(undefined); setSelected(undefined); setCover(undefined); setError('');
     setMetadata({}); setDirty(false); setPendingConfirmation(null); setConflict(false); setDraftNotice(''); bypassLeave.current = false;
   }, [draftId]));
-  useReviewNavigationGuard(!!draftId && dirty, bypassLeave);
-  const edit = (action: () => void) => { action(); setDirty(true); setDraftNotice('Есть несохранённые правки'); };
+  useReviewNavigationGuard(!!draftId && dirty, bypassLeave, busy);
+  const edit = (action: () => void) => { abort.current?.abort(); setSearching(false); action(); setDirty(true); setDraftNotice('Есть несохранённые правки'); };
   const select = (edition: CatalogEdition) => { setDirty(true); setDraftNotice('Проверьте данные и сохраните черновик'); setMetadata({ ...(edition.publisher ? { publisher: edition.publisher } : {}), ...(edition.publicationYear ? { publicationYear: edition.publicationYear } : {}), ...(edition.language ? { language: edition.language } : {}), ...(edition.description ? { description: edition.description } : {}), catalogSource: edition.source, externalId: edition.externalId }); setSelected(edition); setTitle(edition.title); setAuthor(edition.authors.join('; ')); setPages(edition.pageCount ? String(edition.pageCount) : ''); setCover(edition.covers[0]?.uri); };
   const lookup = async (value: string) => {
     const normalized = isbn13(value);
@@ -117,7 +117,7 @@ export function AddBookScreen({ initialIsbn = '', initialDraft, onReloadDraft }:
   };
   const disabled = busy || !!saved || !!pendingConfirmation;
   return <ScreenContainer><ScreenScroll keyboardShouldPersistTaps="handled"><ScreenContent>
-    {draftId ? <PillButton label="Назад к очереди" variant="secondary" onPress={() => router.back()} /> : null}
+    {draftId ? <PillButton label="Назад к очереди" variant="secondary" disabled={busy} onPress={() => router.back()} /> : null}
     <AppHeader title="Добавить книгу" subtitle="Сканируйте ISBN или заполните карточку" />
     {!draftId ? <Row><PillButton label="Сканировать книгу" onPress={() => router.push('/scan')} /><PillButton label="Массовое сканирование" variant="secondary" onPress={() => router.push('/scan?bulk=1')} /><PillButton label="Очередь сканирования" variant="secondary" onPress={() => router.push('/scan/queue')} /></Row> : null}
     <Field accessibilityLabel="ISBN" value={isbn} onChangeText={(value) => { abort.current?.abort(); setSearching(false); setIsbn(value); setMetadata({}); setDirty(true); setSelected(undefined); setResult(undefined); setCover(undefined); }} placeholder="ISBN-10 или ISBN-13" editable={!disabled && !draftId} autoCapitalize="characters" />

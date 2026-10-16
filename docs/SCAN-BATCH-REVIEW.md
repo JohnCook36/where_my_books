@@ -46,3 +46,9 @@ Types/lint/unit/server build, Android export и Expo Doctor. Расширенн�
 ## Остаётся открытым
 
 Общая полка зависит от D; собственные фотографии/crop/rotate/reset и CoverAsset policy — следующий блок C. Физический Android (scanner, back gesture, large fonts, TalkBack) и iOS UX ещё требуют ручной приёмки. Успешный поиск в живом внешнем каталоге не подменяется тестовыми metadata.
+
+## Подтверждённые результаты
+
+Backend revision `73606e1e9d37d8a1dcaa9dda203d57fdcf6ac254`: [PR CI 38829528333](https://github.com/JohnCook36/where_my_books/actions/runs/38829528333) success. Проверены install/types/lint/60 unit tests, миграция и весь расширенный PostgreSQL/HTTP suite, включая реальный CHECK constraint failure, отсутствие orphan work/edition и повтор failed записи. Regression runtime DTO учитывает унаследованный ISBN=undefined.
+
+Локально Expo Doctor 21/21 и Android production JS export прошли. Последующая UI review-правка отменяет незавершённый lookup при ручном редактировании и удерживает экран во время save; её итоговый commit/CI фиксируется в Notion и PR. Ни bundle, ни API tests не заменяют real-device navigation/scanner acceptance.
