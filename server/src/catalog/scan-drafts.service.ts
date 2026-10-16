@@ -37,7 +37,7 @@ export class ScanDraftsService {
   }
   async update(userId: string, id: string, dto: UpdateScanDraftRequest) {
     // A scanned ISBN cannot silently become a different edition while editing its review.
-    if ('isbn' in dto.payload) throw new BadRequestException('Для другого ISBN создайте отдельный черновик');
+    if ('isbn' in dto.payload && dto.payload.isbn !== undefined) throw new BadRequestException('Для другого ISBN создайте отдельный черновик');
     if (dto.payload.coverUri && (!dto.payload.coverUri.startsWith('https://') || !catalogCoverUri(dto.payload.coverUri))) throw new BadRequestException('Недопустимый источник обложки');
     if (dto.reviewed && !readyPayload(dto.payload)) throw new BadRequestException('Для подтверждения укажите название и автора');
     return this.prisma.$transaction(async (tx) => {

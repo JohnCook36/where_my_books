@@ -1,8 +1,22 @@
+import 'reflect-metadata';
+import { ScanReviewPayloadDto } from './scan-drafts.dto.js';
 import { describe, expect, it, vi } from 'vitest';
 import { readyPayload, ScanDraftsService } from './scan-drafts.service.js';
 
 describe('scan batch confirmation', () => {
   it.each([null, {}, { title: 'Title' }, { title: ' ', author: 'Author' }, { title: 'Title', author: 'Author', authors: [' '] }])('does not call an incomplete payload reviewed', (payload) => expect(readyPayload(payload)).toBe(false));
+  it('accepts a runtime DTO whose inherited ISBN field is declared but undefined', async () => {
+    const payload = Object.assign(new ScanReviewPayloadDto(), { isbn: undefined, title: 'Incomplete review' });
+    const stored = { id: 'draft', userId: 'owner', isbn: '9780306406157', revision: 0, reviewed: false, payload: null, createdAt: new Date(), updatedAt: new Date() };
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      scanDraft: { findFirst: vi.fn().mockResolvedValue(stored), update: vi.fn().mockResolvedValue({ ...stored, revision: 1, payload: { title: 'Incomplete review' } }) },
+    };
+    const prisma = { $transaction: vi.fn((fn) => fn(tx)) };
+    const service = new ScanDraftsService(prisma as never, {} as never);
+    const result = await service.update('owner', 'draft', { baseRevision: 0, reviewed: false, payload });
+    expect(result.revision).toBe(1); expect(result.payload).toEqual({ title: 'Incomplete review' });
+  });
   it('accepts an unknown page count and deliberate manual metadata', () => expect(readyPayload({ title: 'Book', author: 'Author', totalPages: 0 })).toBe(true));
   it('does not stop the batch when one database transaction fails', async () => {
     const tx = {
