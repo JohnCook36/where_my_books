@@ -1,4 +1,4 @@
-import type { AuthResponse, RefreshResponse } from '@where-my-books/shared';
+import type { AuthResponse, RefreshResponse, CatalogLookupResponse, ScanDraft, CreateBookRequest, UpdateBookRequest } from '@where-my-books/shared';
 import * as SecureStore from 'expo-secure-store';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000/api';
@@ -59,12 +59,16 @@ export const api = {
   login: (body: { email: string; password: string }) => request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   me: () => request<{ user: { id: string; email: string; createdAt: string } }>('/auth/me'),
   logout: () => request<void>('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
+  catalog: (isbn: string, signal?: AbortSignal) => request<CatalogLookupResponse>(`/catalog?isbn=${encodeURIComponent(isbn)}`, signal ? { signal } : {}),
+  scanDrafts: () => request<{ drafts: ScanDraft[] }>('/scan-drafts'),
+  addScanDraft: (isbn: string) => request<ScanDraft>('/scan-drafts', { method: 'POST', body: JSON.stringify({ isbn }) }),
+  removeScanDraft: (id: string) => request<void>(`/scan-drafts/${id}`, { method: 'DELETE' }),
   books: () => request<{ books: import('@where-my-books/shared').LibraryBookResponse[] }>('/books'),
   book: (id: string) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}`),
-  addBook: (body: { title: string; author: string; totalPages: number }) => request<import('@where-my-books/shared').BookDetailsResponse>('/books', { method: 'POST', body: JSON.stringify(body) }),
+  addBook: (body: CreateBookRequest) => request<import('@where-my-books/shared').BookDetailsResponse>('/books', { method: 'POST', body: JSON.stringify(body) }),
   updateStatus: (id: string, status: import('@where-my-books/shared').ReadingStatus) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   updateProgress: (id: string, currentPage: number) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}/progress`, { method: 'PATCH', body: JSON.stringify({ currentPage }) }),
-  updateBook: (id: string, body: { title?: string; author?: string; totalPages?: number }) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  updateBook: (id: string, body: UpdateBookRequest) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteBook: (id: string) => request<void>(`/books/${id}`, { method: 'DELETE' }),
   settings: () => request<import('@where-my-books/shared').UserSettingsResponse>('/settings'),
   updateSettings: (progressDisplayMode: import('@where-my-books/shared').ProgressDisplayMode) => request<import('@where-my-books/shared').UserSettingsResponse>('/settings', { method: 'PATCH', body: JSON.stringify({ progressDisplayMode }) }),

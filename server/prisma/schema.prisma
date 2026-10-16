@@ -28,6 +28,7 @@ model User {
   sessions     Session[]
   bookCopies   BookCopy[]
   settings     UserSettings?
+  scanDrafts   ScanDraft[]
 }
 
 model Session {
@@ -79,12 +80,15 @@ model Edition {
   pageCount       Int
   coverUri        String?
   language        String?
+  catalogSource   String?
+  externalId      String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   work            BookWork   @relation(fields: [workId], references: [id], onDelete: Cascade)
   copies          BookCopy[]
 
   @@index([workId])
+  @@index([isbn])
 }
 
 model BookCopy {
@@ -92,6 +96,8 @@ model BookCopy {
   userId       String       @db.Uuid
   editionId    String       @db.Uuid
   status       ReadingStatus @default(want_to_read)
+  clientRequestId String?      @db.Uuid
+  coverUri      String?
   currentPage  Int          @default(0)
   spineColor   String       @default("#2C4A3E")
   spineWidth   Float        @default(64)
@@ -103,6 +109,7 @@ model BookCopy {
 
   @@index([userId])
   @@index([editionId])
+  @@unique([userId, clientRequestId])
 }
 
 model UserSettings {
@@ -112,4 +119,14 @@ model UserSettings {
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ScanDraft {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  isbn      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, isbn])
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatReadingProgress, getReadingProgressPercent, getReadingProgressRatio } from './progress';
+import { formatReadingProgress, getReadingProgressPercent, getReadingProgressRatio } from './progress.js';
 
 describe('reading progress', () => {
   it('calculates and clamps a ratio', () => {

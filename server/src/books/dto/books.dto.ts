@@ -1,16 +1,30 @@
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min, MaxLength, IsUUID, IsArray, ArrayMaxSize, ValidateIf } from 'class-validator';
 import type { ReadingStatus } from '@where-my-books/shared';
 
-export class CreateBookDto {
-  @IsString() @IsNotEmpty() title!: string;
-  @IsString() @IsNotEmpty() author!: string;
-  @IsInt() @Min(1) @Max(100000) totalPages!: number;
+export class BookMetadataDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @MaxLength(32) isbn?: string;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @MaxLength(500) publisher?: string;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsInt() @Min(1) @Max(3000) publicationYear?: number;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @MaxLength(30) language?: string;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @MaxLength(10000) description?: string;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsArray() @ArrayMaxSize(30) @IsString({ each: true }) @MaxLength(500, { each: true }) authors?: string[];
+  @IsOptional() @IsString() @MaxLength(2048) coverUri?: string | null;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsEnum(['google_books', 'open_library']) catalogSource?: 'google_books' | 'open_library';
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @MaxLength(200) externalId?: string;
 }
 
-export class UpdateBookDto {
-  @IsOptional() @IsString() @IsNotEmpty() title?: string;
-  @IsOptional() @IsString() @IsNotEmpty() author?: string;
-  @IsOptional() @IsInt() @Min(1) @Max(100000) totalPages?: number;
+export class CreateBookDto extends BookMetadataDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsUUID() clientRequestId?: string;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsUUID() editionId?: string;
+  @IsString() @IsNotEmpty() @MaxLength(500) title!: string;
+  @IsString() @IsNotEmpty() @MaxLength(500) author!: string;
+  @IsInt() @Min(0) @Max(100000) totalPages!: number;
+}
+
+export class UpdateBookDto extends BookMetadataDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @IsNotEmpty() @MaxLength(500) title?: string;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @IsNotEmpty() @MaxLength(500) author?: string;
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsInt() @Min(0) @Max(100000) totalPages?: number;
 }
 
 export class UpdateStatusDto {
