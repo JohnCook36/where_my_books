@@ -34,3 +34,15 @@ export type ScanConfirmationResult =
   | { id: string; status: 'saved'; copyId: string }
   | { id: string; status: 'invalid' | 'conflict' | 'not_found' | 'failed'; message: string };
 export interface ConfirmScanDraftsResponse { results: ScanConfirmationResult[] }
+
+export interface CatalogSearchQuery { title: string; author: string; page: number }
+/** Work-level identifiers are candidates, never an assertion about a physical edition. */
+export interface CatalogSearchHit {
+  source: CatalogSource; externalId: string; kind: 'work' | 'edition';
+  title: string; authors: string[]; isbns: string[]; edition?: CatalogEdition;
+}
+export interface CatalogSearchPage { hits: CatalogSearchHit[]; hasMore: boolean }
+export interface CatalogSearchResponse extends CatalogSearchQuery {
+  hits: (CatalogSearchHit & { existingCopies: { id: string; title: string; isbn: string }[] })[];
+  hasMore: boolean; unavailableSources: CatalogSource[];
+}

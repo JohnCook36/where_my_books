@@ -69,7 +69,7 @@ export class BooksService {
       const edition = await tx.edition.create({ data: { workId: work.id, pageCount: dto.totalPages, isbn: isbn ?? null, publisher: dto.publisher ?? null, publicationYear: dto.publicationYear ?? null, language: dto.language ?? null, catalogSource: dto.catalogSource ?? null, externalId: dto.externalId ?? null, coverUri: automaticCoverUri } });
       editionId = edition.id;
     }
-    const copy = await tx.bookCopy.create({ data: { userId, editionId, clientRequestId: dto.clientRequestId ?? null, requestHash, coverUri, coverMode, coverAssetId }, include });
+    const copy = await tx.bookCopy.create({ data: { userId, editionId, clientRequestId: dto.clientRequestId ?? null, requestHash, coverUri, coverMode, coverAssetId, coverStyle: dto.coverStyle ?? 'parchment' }, include });
     if (dto.clientRequestId) await tx.scanDraft.deleteMany({ where: { id: dto.clientRequestId, userId } });
     return this.toResponse(copy);
   }
@@ -87,7 +87,7 @@ export class BooksService {
       const coverMode = dto.coverMode ?? (dto.coverAssetId ? 'custom' : dto.coverUri !== undefined ? (dto.coverUri ? 'catalog' : 'automatic') : current.coverMode);
       const coverAssetId = coverMode === 'custom' ? dto.coverAssetId === undefined ? current.coverAssetId : dto.coverAssetId : null;
       await validateOwnedCoverSelection(tx, userId, { coverMode, coverAssetId });
-      const metadataChanged = Object.entries(dto).some(([key, value]) => value !== undefined && !['coverUri', 'coverMode', 'coverAssetId', 'automaticCoverUri'].includes(key));
+      const metadataChanged = Object.entries(dto).some(([key, value]) => value !== undefined && !['coverUri', 'coverMode', 'coverAssetId', 'automaticCoverUri', 'coverStyle'].includes(key));
       let editionId = current.editionId;
       if (metadataChanged) {
         const names = this.authorNames(dto.authors ?? (dto.author ? [dto.author] : current.edition.work.authors.map(({ author }) => author.name)));
@@ -96,7 +96,7 @@ export class BooksService {
         const edition = await tx.edition.create({ data: { workId: work.id, pageCount: dto.totalPages ?? current.edition.pageCount, isbn, publisher: dto.publisher ?? current.edition.publisher, publicationYear: dto.publicationYear ?? current.edition.publicationYear, language: dto.language ?? current.edition.language, catalogSource: dto.catalogSource ?? current.edition.catalogSource, externalId: dto.externalId ?? current.edition.externalId, coverUri: current.edition.coverUri } });
         editionId = edition.id;
       }
-      return this.toResponse(await tx.bookCopy.update({ where: { id }, data: { editionId, coverUri, coverMode, coverAssetId }, include }));
+      return this.toResponse(await tx.bookCopy.update({ where: { id }, data: { editionId, coverUri, coverMode, coverAssetId, coverStyle: dto.coverStyle ?? current.coverStyle }, include }));
     });
   }
 
@@ -138,6 +138,7 @@ export class BooksService {
     return {
       id: book.id,
       coverMode: book.coverMode,
+      coverStyle: book.coverStyle,
       ...(book.coverAssetId ? { coverAssetId: book.coverAssetId } : {}),
       ...(book.coverUri ? { coverUri: book.coverUri } : {}),
       editionId: book.editionId,

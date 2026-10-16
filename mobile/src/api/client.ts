@@ -1,4 +1,4 @@
-import type { AuthResponse, RefreshResponse, CatalogLookupResponse, ScanDraft, CreateBookRequest, UpdateBookRequest, UpdateScanDraftRequest, ConfirmScanDraftItem, ConfirmScanDraftsResponse, CoverAssetResponse, UserCoverSource } from '@where-my-books/shared';
+import type { AuthResponse, RefreshResponse, CatalogLookupResponse, ScanDraft, CreateBookRequest, UpdateBookRequest, UpdateScanDraftRequest, ConfirmScanDraftItem, ConfirmScanDraftsResponse, CoverAssetResponse, UserCoverSource, CatalogSearchQuery, CatalogSearchResponse } from '@where-my-books/shared';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
@@ -92,6 +92,7 @@ export const api = {
   login: (body: { email: string; password: string }) => request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   me: () => request<{ user: { id: string; email: string; createdAt: string } }>('/auth/me'),
   logout: () => request<void>('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
+  catalogSearch: (query: CatalogSearchQuery, signal?: AbortSignal) => request<CatalogSearchResponse>(`/catalog/search?${new URLSearchParams({ title: query.title, author: query.author, page: String(query.page) })}`, signal ? { signal } : {}),
   catalog: (isbn: string, signal?: AbortSignal) => request<CatalogLookupResponse>(`/catalog?isbn=${encodeURIComponent(isbn)}`, signal ? { signal } : {}),
   scanDrafts: () => request<{ drafts: ScanDraft[] }>('/scan-drafts'),
   scanDraft: (id: string) => request<ScanDraft>(`/scan-drafts/${id}`),

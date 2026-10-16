@@ -11,7 +11,7 @@ export interface SyncFields {
 export interface Author extends SyncFields { name: string }
 export interface BookWork extends SyncFields { title: string; originalTitle?: string; description?: string; authors: Author[] }
 export interface Edition extends SyncFields { workId: EntityId; isbn?: string; publisher?: string; publicationYear?: number; pageCount: number; coverUri?: string; language?: string; catalogSource?: string; externalId?: string }
-export interface BookCopy extends SyncFields { coverMode: import('../covers/models.js').CoverMode; coverAssetId?: string; coverUri?: string; editionId: EntityId; status: ReadingStatus; progress: ReadingProgress; spineColor: string; spineWidth: number; spineHeight: number }
+export interface BookCopy extends SyncFields { coverStyle: import('../covers/models.js').CoverStyle; coverMode: import('../covers/models.js').CoverMode; coverAssetId?: string; coverUri?: string; editionId: EntityId; status: ReadingStatus; progress: ReadingProgress; spineColor: string; spineWidth: number; spineHeight: number }
 export interface LibraryBook extends BookCopy { edition: Edition; work: BookWork }
 export interface Shelf extends SyncFields { name: string; room?: string; description?: string }
 export interface ShelfSection extends SyncFields { shelfId: EntityId; name: string; position: number }

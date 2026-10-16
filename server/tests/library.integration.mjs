@@ -9,7 +9,7 @@ if (!process.env.DATABASE_URL || process.env.WMB_INTEGRATION_TEST !== '1') throw
 const prisma = new PrismaClient(); const port = '3197'; const base = `http://127.0.0.1:${port}/api`;
 let child; let output = ''; const users = [];
 const start = async () => {
-  child = spawn(process.execPath, ['dist/main.js'], { cwd: new URL('../', import.meta.url), env: { ...process.env, PORT: port, JWT_ACCESS_SECRET: 'integration-only-secret-never-use-in-production' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  child = spawn(process.execPath, ['--import', './tests/catalog-provider-fixture.mjs', 'dist/main.js'], { cwd: new URL('../', import.meta.url), env: { ...process.env, PORT: port, JWT_ACCESS_SECRET: 'integration-only-secret-never-use-in-production' }, stdio: ['ignore', 'pipe', 'pipe'] });
   output = ''; child.stdout.on('data', (chunk) => { output = (output + chunk).slice(-5000); }); child.stderr.on('data', (chunk) => { output = (output + chunk).slice(-5000); });
   for (let i = 0; i < 100; i++) {
     if (child.exitCode !== null) throw new Error(`API exited: ${output}`);
@@ -206,7 +206,37 @@ try {
   await call(`/covers/${asset.id}`, { token: a.accessToken, method: 'DELETE' });
   await call(`/covers/${asset.id}`, { token: a.accessToken, status: 404 });
   await call(`/covers/${bAsset.id}`, { token: b.accessToken, method: 'DELETE' });
-  console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay, API restart and complete 50-book capacity/replay; private image upload/normalization, bounds, ACL, draft confirmation, copy override/reset and protected deletion');
+
+  // Catalog provider responses are isolated in the test preload; HTTP/auth/PostgreSQL remain real.
+  await call('/catalog/search?title=WMB', { status: 401 });
+  for (const query of ['title=x', 'page=0&title=WMB', 'page=21&title=WMB', 'title[]=WMB', `title=${'x'.repeat(201)}`]) await call(`/catalog/search?${query}`, { token: a.accessToken, status: 400 });
+  const searchPath = '/catalog/search?title=WMB%20catalog%20fixture&author=Fixture%20author';
+  const searchA = await call(searchPath, { token: a.accessToken }); const searchB = await call(searchPath, { token: b.accessToken });
+  assert.equal(searchA.hits.length, 20); assert.equal(searchA.hasMore, true); assert.equal(searchA.page, 1);
+  const editionHit = searchA.hits.find((hit) => hit.source === 'google_books' && hit.edition?.isbn === '9780306406157');
+  const workHit = searchA.hits.find((hit) => hit.source === 'open_library' && hit.isbns.includes('9780306406157'));
+  assert.ok(editionHit); assert.ok(workHit); assert.equal(workHit.kind, 'work'); assert.equal(workHit.edition, undefined); assert.equal(workHit.covers, undefined);
+  assert.ok(editionHit.existingCopies.some((copy) => copy.id === second.id)); assert.ok(searchB.hits.every((hit) => hit.existingCopies.length === 0));
+  const nextPage = await call(`${searchPath}&page=2`, { token: a.accessToken }); assert.equal(nextPage.page, 2); assert.equal(nextPage.hits.length, 2); assert.equal(nextPage.hasMore, false);
+  const chosen = editionHit.edition;
+  const fromSearch = { title: chosen.title, author: chosen.authors.join('; '), authors: chosen.authors, totalPages: chosen.pageCount ?? 0, isbn: chosen.isbn, publisher: chosen.publisher, publicationYear: chosen.publicationYear, catalogSource: chosen.source, externalId: chosen.externalId, automaticCoverUri: chosen.covers[0]?.uri, coverMode: 'placeholder', coverStyle: 'forest', clientRequestId: randomUUID() };
+  const styledCopy = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: fromSearch });
+  assert.equal(styledCopy.edition.isbn, chosen.isbn); assert.equal(styledCopy.edition.externalId, chosen.externalId); assert.equal(styledCopy.coverStyle, 'forest'); assert.equal(styledCopy.coverMode, 'placeholder');
+  assert.equal((await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: fromSearch })).id, styledCopy.id);
+  await call(`/books/${styledCopy.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { coverStyle: 'arbitrary-css' } });
+  await call(`/books/${styledCopy.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { coverStyle: null } });
+  const copyWithSharedEdition = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { ...fromSearch, clientRequestId: randomUUID(), editionId: styledCopy.editionId, coverStyle: 'parchment' } });
+  const changedStyle = await call(`/books/${styledCopy.id}`, { token: a.accessToken, method: 'PATCH', body: { coverStyle: 'burgundy' } });
+  assert.equal(changedStyle.editionId, styledCopy.editionId); assert.equal((await call(`/books/${copyWithSharedEdition.id}`, { token: a.accessToken })).coverStyle, 'parchment');
+  await call(`/books/${styledCopy.id}`, { token: b.accessToken, method: 'PATCH', status: 403, body: { coverStyle: 'midnight' } });
+  const styleDraft = await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: payload.isbn } });
+  const styleReady = await call(`/scan-drafts/${styleDraft.id}`, { token: a.accessToken, method: 'PATCH', body: { baseRevision: 0, reviewed: true, payload: { title: workHit.title, author: workHit.authors.join('; '), coverMode: 'placeholder', coverStyle: 'midnight' } } });
+  await stop(); await start();
+  assert.equal((await call(`/books/${styledCopy.id}`, { token: a.accessToken })).coverStyle, 'burgundy');
+  const restoredStyle = await call(`/scan-drafts/${styleDraft.id}`, { token: a.accessToken }); assert.equal(restoredStyle.payload.coverStyle, 'midnight'); assert.equal(restoredStyle.isbn, '9780306406157');
+  const styleConfirmation = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: [{ id: styleReady.id, revision: styleReady.revision }] } });
+  assert.equal(styleConfirmation.results[0].status, 'saved'); const styleSaved = await call(`/books/${styleConfirmation.results[0].copyId}`, { token: a.accessToken }); assert.equal(styleSaved.coverStyle, 'midnight'); assert.equal(styleSaved.edition.isbn, '9780306406157');
+  console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay, API restart and complete 50-book capacity/replay; private image upload/normalization, bounds, ACL, draft confirmation, copy override/reset and protected deletion; catalog search/pagination/owner matches, search-to-copy snapshot and per-copy/draft cover styles');
 
 } finally {
   await stop();

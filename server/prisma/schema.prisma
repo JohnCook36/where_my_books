@@ -7,6 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum CoverStyle {
+  parchment
+  forest
+  burgundy
+  midnight
+}
+
 enum CoverMode {
   automatic
   catalog
@@ -112,6 +119,7 @@ model BookCopy {
   clientRequestId String?      @db.Uuid
   requestHash     String?
   coverUri      String?
+  coverStyle    CoverStyle @default(parchment)
   coverMode     CoverMode @default(automatic)
   coverAssetId  String? @db.Uuid
   coverAsset    CoverAsset? @relation(fields: [coverAssetId], references: [id], onDelete: SetNull)

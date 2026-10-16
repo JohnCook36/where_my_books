@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Crypto from 'expo-crypto';
 import { Alert, Modal } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import type { CatalogEdition, CatalogLookupResponse, CreateBookRequest, ScanDraft, ScanDraftPayload, ConfirmScanDraftItem, CoverMode } from '@where-my-books/shared';
+import type { CatalogEdition, CatalogLookupResponse, CreateBookRequest, ScanDraft, ScanDraftPayload, ConfirmScanDraftItem, CoverMode, CoverStyle } from '@where-my-books/shared';
 import { isbn13 } from '@where-my-books/shared';
 import { AppHeader, PillButton, ScreenContainer, ScreenContent, ScreenScroll } from '@/components';
 import { api, ApiError } from '../../api/client';
 import { useReviewNavigationGuard } from './useReviewNavigationGuard';
+import { CatalogSearch } from './CatalogSearch';
+import { CoverStylePicker } from './CoverStylePicker';
 import { UserCoverEditor } from './UserCoverEditor';
 import { BookCover } from './BookCover';
 import { Choice, Field, Note, PreviewImage, Row } from './styles';
@@ -20,6 +22,7 @@ export function AddBookScreen({ initialIsbn = '', initialDraft, onReloadDraft }:
   const [title, setTitle] = useState(initialDraft?.payload?.title ?? ''); const [author, setAuthor] = useState(initialDraft?.payload?.author ?? ''); const [pages, setPages] = useState(initialDraft?.payload?.totalPages ? String(initialDraft.payload.totalPages) : '');
   const [cover, setCover] = useState<string | undefined>(initialDraft?.payload?.coverUri ?? undefined); const [preview, setPreview] = useState<string>();
   const [coverMode, setCoverMode] = useState<CoverMode>(initialDraft?.payload?.coverMode ?? (initialDraft?.payload?.coverUri ? 'catalog' : 'automatic'));
+  const [coverStyle, setCoverStyle] = useState<CoverStyle>(initialDraft?.payload?.coverStyle ?? 'parchment');
   const [coverAssetId, setCoverAssetId] = useState<string | null>(initialDraft?.payload?.coverAssetId ?? null);
   const [imageBusy, setImageBusy] = useState(false);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [searching, setSearching] = useState(!!initialIsbn && !initialDraft?.payload);
@@ -35,10 +38,11 @@ export function AddBookScreen({ initialIsbn = '', initialDraft, onReloadDraft }:
   const abort = useRef<AbortController | null>(null);
   const completed = useRef(false);
   useFocusEffect(useCallback(() => {
+    bypassLeave.current = false;
     if (!completed.current || draftId) return;
     completed.current = false; requestId.current = Crypto.randomUUID();
     setSaved(undefined); setIsbn(''); setTitle(''); setAuthor(''); setPages('');
-    setResult(undefined); setSelected(undefined); setCover(undefined); setCoverMode('automatic'); setCoverAssetId(null); setError('');
+    setResult(undefined); setSelected(undefined); setCover(undefined); setCoverMode('automatic'); setCoverStyle('parchment'); setCoverAssetId(null); setError('');
     setMetadata({}); setDirty(false); setPendingConfirmation(null); setConflict(false); setDraftNotice(''); bypassLeave.current = false;
   }, [draftId]));
   useReviewNavigationGuard(!!draftId && dirty, bypassLeave, busy || imageBusy);
@@ -72,7 +76,7 @@ export function AddBookScreen({ initialIsbn = '', initialDraft, onReloadDraft }:
   const formPayload = (): ScanDraftPayload => {
     const totalPages = pages.trim() ? Number(pages) : 0;
     if (!/^\d*$/.test(pages.trim()) || !Number.isSafeInteger(totalPages) || totalPages > 100000) throw new Error('Страницы: целое число от 0 до 100000; неизвестное можно оставить пустым.');
-    return { ...metadata, title: title.trim(), author: author.trim(), authors: author.split(';').map((name) => name.trim()).filter(Boolean), totalPages, coverUri: cover ?? null, coverMode, coverAssetId };
+    return { ...metadata, title: title.trim(), author: author.trim(), authors: author.split(';').map((name) => name.trim()).filter(Boolean), totalPages, coverUri: cover ?? null, coverMode, coverAssetId, coverStyle };
   };
   const handleError = (err: unknown) => {
     if (err instanceof ApiError && (err.status === 409 || err.status === 404)) setConflict(true);
@@ -119,13 +123,20 @@ export function AddBookScreen({ initialIsbn = '', initialDraft, onReloadDraft }:
       router.replace(`/books/${copyId}`);
     } catch (err) { handleError(err); } finally { setBusy(false); }
   };
+  const differentEdition = (value: string) => Alert.alert('Другое издание', 'Этот ISBN отличается от отсканированного. Сохраним текущий черновик и откроем отдельное добавление. Исходный ISBN останется в очереди.', [{ text: 'Остаться', style: 'cancel' }, { text: 'Сохранить и открыть', onPress: () => { setBusy(true); void persistDraft(false).then(() => { bypassLeave.current = true; router.push({ pathname: '/books/add', params: { isbn: value } }); }).catch(handleError).finally(() => setBusy(false)); } }]);
+  const chooseIsbn = (value: string) => {
+    if (draftId && value !== isbn13(isbn)) { differentEdition(value); return; }
+    edit(() => { setIsbn(value); setSelected(undefined); setResult(undefined); setMetadata({}); setCover(undefined); setCoverAssetId(null); setCoverMode('automatic'); });
+    void lookup(value);
+  };
   const disabled = busy || imageBusy || !!saved || !!pendingConfirmation;
   return <ScreenContainer><ScreenScroll keyboardShouldPersistTaps="handled"><ScreenContent>
-    {draftId ? <PillButton label="Назад к очереди" variant="secondary" disabled={busy} onPress={() => router.back()} /> : null}
+    {draftId || initialIsbn ? <PillButton label={draftId ? "Назад к очереди" : "Назад"} variant="secondary" disabled={busy} onPress={() => router.back()} /> : null}
     <AppHeader title="Добавить книгу" subtitle="Сканируйте ISBN или заполните карточку" />
     {!draftId ? <Row><PillButton label="Сканировать книгу" onPress={() => router.push('/scan')} /><PillButton label="Массовое сканирование" variant="secondary" onPress={() => router.push('/scan?bulk=1')} /><PillButton label="Очередь сканирования" variant="secondary" onPress={() => router.push('/scan/queue')} /></Row> : null}
     <Field accessibilityLabel="ISBN" value={isbn} onChangeText={(value) => { abort.current?.abort(); setSearching(false); setIsbn(value); setMetadata({}); setDirty(true); setSelected(undefined); setResult(undefined); setCover(undefined); setCoverMode('automatic'); setCoverAssetId(null); }} placeholder="ISBN-10 или ISBN-13" editable={!disabled && !draftId} autoCapitalize="characters" />
     <PillButton label={searching ? 'Ищем издание…' : 'Найти по ISBN / повторить'} disabled={searching || disabled} onPress={() => void lookup(isbn)} />
+    <CatalogSearch disabled={disabled} onActivity={() => { abort.current?.abort(); setSearching(false); }} onText={(hit) => edit(() => { setTitle(hit.title); setAuthor(hit.authors.join('; ')); })} onIsbn={chooseIsbn} onEdition={(edition, copies) => { if (draftId && edition.isbn !== isbn13(isbn)) { differentEdition(edition.isbn); return; } edit(() => { setIsbn(edition.isbn); select(edition); setResult({ isbn: edition.isbn, editions: [edition], unavailableSources: [], existingCopies: copies }); }); }} onCopy={(id) => router.push(`/books/${id}`)} />
     {result?.unavailableSources.length ? <Note>Часть каталогов недоступна: {result.unavailableSources.join(', ')}. Повторите поиск или заполните поля вручную.</Note> : null}
     {result && !result.editions.length ? <Note>Издание не найдено. Можно заполнить карточку ниже и сохранить без каталога.</Note> : null}
     {result?.existingCopies.length ? <><Note>Уже есть в вашей библиотеке. Можно открыть экземпляр или сохранить ещё один:</Note>{result.existingCopies.map((copy) => <PillButton key={copy.id} label={copy.title} variant="secondary" onPress={() => router.push(`/books/${copy.id}`)} />)}</> : null}
@@ -133,7 +144,8 @@ export function AddBookScreen({ initialIsbn = '', initialDraft, onReloadDraft }:
     <Field accessibilityLabel="Название книги" placeholder="Название" value={title} onChangeText={(value) => edit(() => setTitle(value))} editable={!disabled} />
     <Field accessibilityLabel="Авторы через точку с запятой" placeholder="Автор; второй автор" value={author} onChangeText={(value) => edit(() => setAuthor(value))} editable={!disabled} />
     <Field accessibilityLabel="Количество страниц, можно оставить пустым" placeholder="Страницы, если известны" keyboardType="number-pad" value={pages} onChangeText={(value) => edit(() => setPages(value))} editable={!disabled} />
-    <BookCover uri={cover ?? metadata.automaticCoverUri ?? undefined} mode={coverMode} assetId={coverAssetId ?? undefined} title={title} author={author} />
+    <BookCover coverStyle={coverStyle} uri={cover ?? metadata.automaticCoverUri ?? undefined} mode={coverMode} assetId={coverAssetId ?? undefined} title={title} author={author} />
+    <CoverStylePicker value={coverStyle} title={title} author={author} disabled={disabled} onChange={(style) => edit(() => { setCoverStyle(style); setCoverMode('placeholder'); setCoverAssetId(null); setCover(undefined); })} />
     <UserCoverEditor disabled={disabled} onBusy={setImageBusy} onSelected={(asset) => edit(() => { setCoverAssetId(asset.id); setCoverMode('custom'); setCover(undefined); })} />
     <PillButton label="Вернуть автоматическую обложку" variant="secondary" disabled={disabled} onPress={() => edit(() => { setCoverMode('automatic'); setCoverAssetId(null); setCover(metadata.automaticCoverUri ?? undefined); })} />
     <Note>Выберите обложку текущего издания</Note>
