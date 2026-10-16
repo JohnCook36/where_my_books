@@ -24,8 +24,10 @@ async function call(path, { token, method = 'GET', body, status = 200 } = {}) {
   const text = await response.text(); assert.equal(response.status, status, `${method} ${path}: ${text}`);
   return text ? JSON.parse(text) : undefined;
 }
-async function uploadCover(token, bytes, { source = 'gallery', mime = 'image/jpeg', status = 201 } = {}) {
+async function uploadCover(token, bytes, { source = 'gallery', mime = 'image/jpeg', status = 201, extraField = false, extraFile = false } = {}) {
   const form = new FormData(); form.append('source', source); form.append('file', new Blob([bytes], { type: mime }), 'private-photo');
+  if (extraField) form.append('unexpected', 'value');
+  if (extraFile) form.append('file', new Blob([bytes], { type: mime }), 'second-photo');
   const response = await fetch(`${base}/covers`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
   const text = await response.text(); assert.equal(response.status, status, `POST /covers: ${text}`);
   return text ? JSON.parse(text) : undefined;
@@ -160,6 +162,8 @@ try {
   await uploadCover(undefined, photo, { status: 401 });
   await uploadCover(a.accessToken, photo, { source: 'external_url', status: 400 });
   await uploadCover(a.accessToken, photo, { mime: 'image/png', status: 400 });
+  await uploadCover(a.accessToken, photo, { extraField: true, status: 400 });
+  await uploadCover(a.accessToken, photo, { extraFile: true, status: 400 });
   await uploadCover(a.accessToken, Buffer.from('<svg/>'), { status: 400 });
   await uploadCover(a.accessToken, Buffer.from([255, 216, 255, 0]), { status: 400 });
   await uploadCover(a.accessToken, Buffer.alloc(8_000_001), { status: 413 });

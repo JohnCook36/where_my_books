@@ -14,7 +14,7 @@ export class CoversController {
   constructor(private readonly covers: CoversService) {}
   @Post()
   @UseGuards(CoverUploadGuard)
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 1, parts: 2 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 1 } }))
   upload(@CurrentUser() user: AccessTokenPayload, @Body() dto: UploadCoverDto, @UploadedFile() file?: { buffer: Buffer; mimetype: string }) {
     if (!file) throw new BadRequestException('Выберите файл обложки');
     return this.covers.upload(user.sub, dto.source, file.buffer, file.mimetype);
