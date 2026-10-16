@@ -229,3 +229,24 @@ React + TypeScript + Vite + Emotion
 - [ ] прогресс;
 - [ ] статистика;
 - [ ] профиль и настройки.
+
+
+## Полный продукт: актуализация 2026-10-16
+
+Предыдущие отметки выше сохранены как история `feat/usable-mvp`, а не доказательство merge в main или финальной приёмки. Сверка веток: [audit](docs/AUDIT-2026-10-16.md). Требования: [product](docs/PRODUCT-REQUIREMENTS.md). Notion HQ: https://app.notion.com/p/3fa043746cc681319116c2663a49797a
+
+| Этап | Содержание | Зависимости | Acceptance | Статус |
+|---|---|---|---|---|
+| A | Audit / HQ / матрица / план | — | SHA/API/CI/риски зафиксированы | в работе |
+| B | Auth / PostgreSQL / CRUD / owner isolation / idempotency | A | live PG, два аккаунта, restart, CI | частично в usable-mvp |
+| C | ISBN / Google + OpenLibrary / edition / covers / camera / bulk | B minimal | сценарии 1,2,3,7,8,9 и настоящий Android | ближайший блок |
+| D | Комнаты/шкафы/секции/полки/позиции/корешки/DnD/Undo | B | сценарии 4,5 и доступная перестановка | backlog |
+| E | Diary/quotes/history/sessions/timer/goals/stats | B | persistence и верная аналитика | backlog |
+| F | Collections/wishlist/series/loans/import/export/restore | B | ownership отдельно от wishlist, safe repeat/restore | backlog |
+| G | Sync protocol и Vite Web, offline только после дизайна | B | два устройства, конфликты/удаления | backlog |
+| H | Public/friends/reviews/recommendations/privacy/moderation | B,E,F | права и приватность проверены | backlog |
+| I | Regression/a11y/performance/backup/Android+iOS/production | B–H | release gates и приёмка | backlog |
+
+Catalog/ISBN переносится перед расширенной виртуальной библиотекой как явно согласованный владельцем приоритет. Этапы 0–13 выше не удаляются. MVP не является завершением продукта.
+
+Следующие поставки C: (1) ISBN+metadata+сохранение выбора+камера; (2) durable bulk queue и batch confirm; (3) private photo upload/crop/rotate/reset и cover policy; (4) real Android acceptance. Каждый блок — один связный PR с тестами и документацией, не отдельный PR на файл.
