@@ -1,4 +1,5 @@
-import type { AuthResponse, RefreshResponse, CatalogLookupResponse, ScanDraft, CreateBookRequest, UpdateBookRequest, UpdateScanDraftRequest, ConfirmScanDraftItem, ConfirmScanDraftsResponse } from '@where-my-books/shared';
+import type { AuthResponse, RefreshResponse, CatalogLookupResponse, ScanDraft, CreateBookRequest, UpdateBookRequest, UpdateScanDraftRequest, ConfirmScanDraftItem, ConfirmScanDraftsResponse, CoverAssetResponse, UserCoverSource } from '@where-my-books/shared';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:3000/api';
@@ -37,19 +38,30 @@ export class ApiError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
 }
 
+let refreshInFlight: Promise<boolean> | null = null;
+async function refreshSession() {
+  if (refreshInFlight) return refreshInFlight;
+  const previous = refreshToken;
+  if (!previous) return false;
+  refreshInFlight = (async () => {
+    const response = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken: previous }) });
+    if (refreshToken !== previous) return !!accessToken;
+    if (!response.ok) { await tokenStore.clear(); return false; }
+    const tokens = await response.json() as RefreshResponse;
+    if (refreshToken !== previous) return !!accessToken;
+    await tokenStore.set(tokens); return true;
+  })();
+  try { return await refreshInFlight; } finally { refreshInFlight = null; }
+}
+
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(init.headers);
-  headers.set('Content-Type', 'application/json');
+  if (!(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+  const sentToken = accessToken;
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
   const response = await fetch(`${API_URL}${path}`, { ...init, headers });
   if (response.status === 401 && retry && refreshToken) {
-    const refreshed = await fetch(`${API_URL}/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
-    if (refreshed.ok) {
-      const tokens = await refreshed.json() as RefreshResponse;
-      await tokenStore.set({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken });
-      return request<T>(path, init, false);
-    }
-    await tokenStore.clear();
+    if ((accessToken && accessToken !== sentToken) || await refreshSession()) return request<T>(path, init, false);
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { message?: string } | null;
@@ -59,6 +71,23 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 }
 
 export const api = {
+  async uploadCover(uri: string, source: UserCoverSource) {
+    const form = new FormData(); form.append('source', source);
+    if (Platform.OS === 'web') form.append('file', await (await fetch(uri)).blob(), 'cover.jpg');
+    else form.append('file', { uri, name: 'cover.jpg', type: 'image/jpeg' } as unknown as Blob);
+    return request<CoverAssetResponse>('/covers', { method: 'POST', body: form });
+  },
+  async coverImageSource(id: string) {
+    await request<CoverAssetResponse>(`/covers/${encodeURIComponent(id)}`);
+    const uri = `${API_URL}/covers/${encodeURIComponent(id)}/image`;
+    const headers = { Authorization: `Bearer ${accessToken}` };
+    if (Platform.OS === 'web') {
+      const image = await fetch(uri, { headers, cache: 'no-store' });
+      if (!image.ok) throw new ApiError('Не удалось загрузить обложку', image.status);
+      return { uri: URL.createObjectURL(await image.blob()) };
+    }
+    return { uri, headers };
+  },
   register: (body: { email: string; password: string }) => request<AuthResponse>('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
   login: (body: { email: string; password: string }) => request<AuthResponse>('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
   me: () => request<{ user: { id: string; email: string; createdAt: string } }>('/auth/me'),

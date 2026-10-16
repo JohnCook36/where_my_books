@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import sharp from 'sharp';
 import { PrismaClient } from '@prisma/client';
 
 if (!process.env.DATABASE_URL || process.env.WMB_INTEGRATION_TEST !== '1') throw new Error('Set DATABASE_URL to a disposable DB and WMB_INTEGRATION_TEST=1');
@@ -23,6 +24,13 @@ async function call(path, { token, method = 'GET', body, status = 200 } = {}) {
   const text = await response.text(); assert.equal(response.status, status, `${method} ${path}: ${text}`);
   return text ? JSON.parse(text) : undefined;
 }
+async function uploadCover(token, bytes, { source = 'gallery', mime = 'image/jpeg', status = 201 } = {}) {
+  const form = new FormData(); form.append('source', source); form.append('file', new Blob([bytes], { type: mime }), 'private-photo');
+  const response = await fetch(`${base}/covers`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : {}, body: form });
+  const text = await response.text(); assert.equal(response.status, status, `POST /covers: ${text}`);
+  return text ? JSON.parse(text) : undefined;
+}
+
 try {
   await start();
   const a = await call('/auth/register', { method: 'POST', status: 201, body: { email: `a-${randomUUID()}@example.test`, password: 'Test-only-passphrase-9274' } }); users.push(a.user.id);
@@ -146,7 +154,55 @@ try {
   const fullReplay = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: fullBatch } });
   assert.deepEqual(fullReplay.results, fullResult.results);
   assert.equal((await call('/books', { token: a.accessToken })).books.length, copiesBeforeFullBatch + 50);
-  console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay, API restart and complete 50-book capacity/replay');
+
+  // Real multipart image processing and owner authorization, using bytes rather than URL mocks.
+  const photo = await sharp({ create: { width: 1600, height: 2400, channels: 3, background: '#884433' } }).jpeg().withMetadata({ exif: { IFD0: { Artist: 'Private owner metadata' } } }).toBuffer();
+  await uploadCover(undefined, photo, { status: 401 });
+  await uploadCover(a.accessToken, photo, { source: 'external_url', status: 400 });
+  await uploadCover(a.accessToken, photo, { mime: 'image/png', status: 400 });
+  await uploadCover(a.accessToken, Buffer.from('<svg/>'), { status: 400 });
+  await uploadCover(a.accessToken, Buffer.from([255, 216, 255, 0]), { status: 400 });
+  await uploadCover(a.accessToken, Buffer.alloc(8_000_001), { status: 413 });
+  const hugePixels = await sharp({ create: { width: 6000, height: 5000, channels: 3, background: '#ffffff' } }).png().toBuffer();
+  await uploadCover(a.accessToken, hugePixels, { mime: 'image/png', status: 400 });
+  const [asset, assetReplay] = await Promise.all([uploadCover(a.accessToken, photo), uploadCover(a.accessToken, photo)]);
+  assert.equal(asset.id, assetReplay.id); assert.equal(asset.mimeType, 'image/jpeg'); assert.equal(asset.width, 1200); assert.equal(asset.height, 1800);
+  assert.equal(asset.bytes, undefined); assert.equal(asset.userId, undefined);
+  const bAsset = await uploadCover(b.accessToken, photo, { source: 'camera' }); assert.notEqual(asset.id, bAsset.id);
+  for (const path of [`/covers/${asset.id}`, `/covers/${asset.id}/image`]) {
+    await call(path, { status: 401 }); await call(path, { token: b.accessToken, status: 404 });
+  }
+  await call(`/covers/${asset.id}`, { token: b.accessToken, method: 'DELETE', status: 404 });
+  const image = await fetch(`${base}/covers/${asset.id}/image`, { headers: { Authorization: `Bearer ${a.accessToken}` } });
+  assert.equal(image.status, 200); assert.equal(image.headers.get('content-type'), 'image/jpeg'); assert.equal(image.headers.get('cache-control'), 'private, no-store'); assert.equal(image.headers.get('x-content-type-options'), 'nosniff');
+  const storedImage = Buffer.from(await image.arrayBuffer()); const imageMetadata = await sharp(storedImage).metadata();
+  assert.equal(storedImage.length, asset.byteSize); assert.equal(imageMetadata.exif, undefined);
+  const baseline = (await call(`/books/${second.id}`, { token: a.accessToken })).editionId;
+  const withPhoto = await call(`/books/${second.id}`, { token: a.accessToken, method: 'PATCH', body: { coverMode: 'custom', coverAssetId: asset.id, coverUri: null } });
+  assert.equal(withPhoto.coverMode, 'custom'); assert.equal(withPhoto.coverAssetId, asset.id); assert.equal(withPhoto.editionId, baseline);
+  assert.equal((await call(`/books/${one.id}`, { token: a.accessToken })).coverAssetId, undefined);
+  await call(`/covers/${asset.id}`, { token: a.accessToken, method: 'DELETE', status: 409 });
+  await call('/books', { token: b.accessToken, method: 'POST', status: 404, body: { title: 'Foreign photo', author: 'B', totalPages: 0, coverMode: 'custom', coverAssetId: asset.id } });
+  await call(`/books/${one.id}`, { token: a.accessToken, method: 'PATCH', status: 404, body: { coverMode: 'custom', coverAssetId: bAsset.id } });
+  await call(`/books/${one.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { coverMode: 'custom', coverAssetId: null } });
+  const photoDraft = await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: '9780140328721' } });
+  await call(`/scan-drafts/${photoDraft.id}`, { token: a.accessToken, method: 'PATCH', status: 404, body: { baseRevision: 0, reviewed: true, payload: { title: 'Foreign photo draft', author: 'A', coverMode: 'custom', coverAssetId: bAsset.id } } });
+  const photoReady = await call(`/scan-drafts/${photoDraft.id}`, { token: a.accessToken, method: 'PATCH', body: { baseRevision: 0, reviewed: true, payload: { title: 'Private cover in batch', author: 'A', coverMode: 'custom', coverAssetId: asset.id, automaticCoverUri: payload.coverUri } } });
+  const placeholder = await call(`/books/${second.id}`, { token: a.accessToken, method: 'PATCH', body: { coverMode: 'placeholder', coverAssetId: null, coverUri: null } });
+  assert.equal(placeholder.coverMode, 'placeholder'); assert.equal(placeholder.coverAssetId, undefined); assert.equal(placeholder.edition.coverUri, payload.coverUri);
+  await call(`/covers/${asset.id}`, { token: a.accessToken, method: 'DELETE', status: 409 }); // The draft also holds a protected reference.
+  await stop(); await start();
+  assert.equal((await call(`/scan-drafts/${photoDraft.id}`, { token: a.accessToken })).payload.coverAssetId, asset.id);
+  assert.equal((await call(`/covers/${asset.id}`, { token: a.accessToken })).byteSize, asset.byteSize);
+  const photoBatch = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: [{ id: photoReady.id, revision: photoReady.revision }] } });
+  assert.equal(photoBatch.results[0].status, 'saved');
+  const photoCopy = await call(`/books/${photoBatch.results[0].copyId}`, { token: a.accessToken }); assert.equal(photoCopy.coverAssetId, asset.id); assert.equal(photoCopy.coverMode, 'custom');
+  const reset = await call(`/books/${photoCopy.id}`, { token: a.accessToken, method: 'PATCH', body: { coverMode: 'automatic', coverAssetId: null, coverUri: null } });
+  assert.equal(reset.coverMode, 'automatic'); assert.equal(reset.coverAssetId, undefined); assert.equal(reset.edition.coverUri, payload.coverUri); assert.equal(reset.editionId, photoCopy.editionId);
+  await call(`/covers/${asset.id}`, { token: a.accessToken, method: 'DELETE' });
+  await call(`/covers/${asset.id}`, { token: a.accessToken, status: 404 });
+  await call(`/covers/${bAsset.id}`, { token: b.accessToken, method: 'DELETE' });
+  console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay, API restart and complete 50-book capacity/replay; private image upload/normalization, bounds, ACL, draft confirmation, copy override/reset and protected deletion');
 
 } finally {
   await stop();

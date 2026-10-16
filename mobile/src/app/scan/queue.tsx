@@ -48,7 +48,7 @@ export default function ScanQueue() {
     {results.length ? <><Note accessibilityLiveRegion="polite">Сохранено: {results.filter((result) => result.status === 'saved').length}. Требует внимания: {results.filter((result) => result.status !== 'saved').length}.</Note>{results.map((result) => <Choice key={result.id}><Note>{titles[result.id] ?? 'Книга'} · {result.status === 'saved' ? 'В библиотеке' : result.message}</Note>{result.status === 'saved' ? <PillButton label="Открыть сохранённый экземпляр" disabled={busy} variant="secondary" onPress={() => router.push(`/books/${result.copyId}`)} /> : null}</Choice>)}</> : null}
     {!busy && !error && !drafts.length ? <Note>Очередь пуста. Сохранённые экземпляры доступны в библиотеке.</Note> : null}
     {drafts.map((draft) => <Choice key={draft.id}>
-      {draft.payload ? <BookCover uri={draft.payload.coverUri ?? undefined} title={draft.payload.title ?? `ISBN ${draft.isbn}`} author={draft.payload.author} /> : null}
+      {draft.payload ? <BookCover mode={draft.payload.coverMode} assetId={draft.payload.coverAssetId ?? undefined} uri={draft.payload.coverMode === 'automatic' ? draft.payload.automaticCoverUri ?? undefined : draft.payload.coverUri ?? undefined} title={draft.payload.title ?? `ISBN ${draft.isbn}`} author={draft.payload.author} /> : null}
       <Note>{draft.payload?.title || `ISBN ${draft.isbn}`} · {draft.reviewed ? 'Подтверждено для партии' : 'Нужна проверка'}</Note>
       <Row><PillButton label="Проверить / редактировать" disabled={busy || !!pendingBatch} onPress={() => router.push({ pathname: '/scan/review', params: { draftId: draft.id } })} /><PillButton label="Убрать из очереди" variant="secondary" disabled={busy || !!pendingBatch} onPress={() => void remove(draft.id)} /></Row>
     </Choice>)}

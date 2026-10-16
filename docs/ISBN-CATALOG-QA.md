@@ -13,7 +13,7 @@
 ## Не завершено (не включать в Done этапа C)
 - Общая полка для партии — зависит от серверной модели размещения D. Bulk review и подтверждение всех реализованы следующим срезом, см. SCAN-BATCH-REVIEW.md.
 - Ручная приёмка восстановления/редактирования черновиков и batch UX на устройстве (API/реализация добавлены следующим срезом).
-- Private photo/gallery upload, MIME/file-size checks, crop/rotate/cancel/reset-auto и cover source asset policy.
+- Private photo/gallery upload и редактор реализованы отдельным срезом: [контракт, проверки и ограничения](PRIVATE-COVERS.md). Физическая UI-приёмка остаётся открытой.
 - Выбор физического места — зависит от D: серверной модели размещения ещё нет.
 - Поиск по названию/автору внешнего каталога, automatic backoff и production-wide distributed quota.
 - Настоящий Android, iOS и пользовательская UX-приёмка.
@@ -36,7 +36,7 @@ Google Books production key задаётся только `GOOGLE_BOOKS_API_KEY`
 - `cd mobile && npx expo export --platform android` (проверяет bundle, не работу камеры).
 - На disposable PostgreSQL: `WMB_INTEGRATION_TEST=1 DATABASE_URL=... npm run test:integration --workspace @where-my-books/server` после migrate deploy. Тест создаёт отдельные аккаунты и удаляет их; не запускать на production. В CI отдельный PostgreSQL17 service.
 
-## Ручная приёмка на Android (ещё не выполнена)
+## Ручная приёмка на Android (по решению владельца отложена до сборки приложения)
 - [ ] Модель, Android, build SHA записаны.
 - [ ] Разрешение: allow/deny/не спрашивать/settings.
 - [ ] EAN13 978/979: autofocus/torch/haptics; другие EAN не принимаются.

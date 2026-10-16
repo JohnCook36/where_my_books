@@ -1,3 +1,4 @@
+import type { CoverSelection } from '../covers/models.js';
 import type { LibraryBook, UserSettings } from '../library/models.js';
 import type { ProgressDisplayMode, ReadingStatus } from '../reading/progress.js';
 
@@ -8,9 +9,9 @@ export interface AuthResponse { user: AuthUser; accessToken: string; refreshToke
 export interface RefreshResponse { accessToken: string; refreshToken: string }
 export interface CurrentUserResponse { user: AuthUser }
 
-export interface BookMetadataInput {
+export interface BookMetadataInput extends CoverSelection {
   isbn?: string; publisher?: string; publicationYear?: number; language?: string;
-  description?: string; authors?: string[]; coverUri?: string | null;
+  description?: string; authors?: string[];
   catalogSource?: import('../catalog/models.js').CatalogSource; externalId?: string;
 }
 export interface CreateBookRequest extends BookMetadataInput {

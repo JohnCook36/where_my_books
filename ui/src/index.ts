@@ -3,3 +3,4 @@ export * from './tokens/motion';
 export * from './tokens/radii';
 export * from './tokens/spacing';
 export * from './tokens/typography';
+export * from './tokens/media';

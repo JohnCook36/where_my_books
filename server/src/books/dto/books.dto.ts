@@ -2,6 +2,9 @@ import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min, MaxLength, I
 import type { ReadingStatus } from '@where-my-books/shared';
 
 export class BookMetadataDto {
+  @ValidateIf((_object, value: unknown) => value !== undefined) @IsEnum(['automatic', 'catalog', 'custom', 'placeholder']) coverMode?: 'automatic' | 'catalog' | 'custom' | 'placeholder';
+  @IsOptional() @IsUUID() coverAssetId?: string | null;
+  @IsOptional() @IsString() @MaxLength(2048) automaticCoverUri?: string | null;
   @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @MaxLength(32) isbn?: string;
   @ValidateIf((_object, value: unknown) => value !== undefined) @IsString() @MaxLength(500) publisher?: string;
   @ValidateIf((_object, value: unknown) => value !== undefined) @IsInt() @Min(1) @Max(3000) publicationYear?: number;

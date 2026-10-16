@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum CoverMode {
+  automatic
+  catalog
+  custom
+  placeholder
+}
+
+enum UserCoverSource {
+  gallery
+  camera
+}
+
 enum ReadingStatus {
   want_to_read
   reading
@@ -29,6 +41,7 @@ model User {
   bookCopies   BookCopy[]
   settings     UserSettings?
   scanDrafts   ScanDraft[]
+  coverAssets  CoverAsset[]
 }
 
 model Session {
@@ -99,6 +112,9 @@ model BookCopy {
   clientRequestId String?      @db.Uuid
   requestHash     String?
   coverUri      String?
+  coverMode     CoverMode @default(automatic)
+  coverAssetId  String? @db.Uuid
+  coverAsset    CoverAsset? @relation(fields: [coverAssetId], references: [id], onDelete: SetNull)
   currentPage  Int          @default(0)
   spineColor   String       @default("#2C4A3E")
   spineWidth   Float        @default(64)
@@ -110,6 +126,7 @@ model BookCopy {
 
   @@index([userId])
   @@index([editionId])
+  @@index([coverAssetId])
   @@unique([userId, clientRequestId])
 }
 
@@ -134,4 +151,21 @@ model ScanDraft {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, isbn])
+}
+
+model CoverAsset {
+  id        String          @id @default(uuid()) @db.Uuid
+  userId    String          @db.Uuid
+  source    UserCoverSource
+  checksum  String
+  mimeType  String
+  width     Int
+  height    Int
+  byteSize  Int
+  bytes     Bytes
+  createdAt DateTime        @default(now())
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  copies    BookCopy[]
+
+  @@unique([userId, checksum])
 }

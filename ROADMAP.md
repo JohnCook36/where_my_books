@@ -237,9 +237,9 @@ React + TypeScript + Vite + Emotion
 
 | Этап | Содержание | Зависимости | Acceptance | Статус |
 |---|---|---|---|---|
-| A | Audit / HQ / матрица / план | — | SHA/API/CI/риски зафиксированы | в работе |
-| B | Auth / PostgreSQL / CRUD / owner isolation / idempotency | A | live PG, два аккаунта, restart, CI | частично в usable-mvp |
-| C | ISBN / Google + OpenLibrary / edition / covers / camera / bulk | B minimal | сценарии 1,2,3,7,8,9 и настоящий Android | ближайший блок |
+| A | Audit / HQ / матрица / план | — | SHA/API/CI/риски зафиксированы | аудит и HQ зафиксированы |
+| B | Auth / PostgreSQL / CRUD / owner isolation / idempotency | A | live PG, два аккаунта, restart, CI | базовый auth/CRUD проверен; полный B открыт |
+| C | ISBN / Google + OpenLibrary / edition / covers / camera / bulk | B minimal | сценарии 1,2,3,7,8,9 и настоящий Android | scanner/review/batch/covers реализованы; оставшиеся пункты открыты |
 | D | Комнаты/шкафы/секции/полки/позиции/корешки/DnD/Undo | B | сценарии 4,5 и доступная перестановка | backlog |
 | E | Diary/quotes/history/sessions/timer/goals/stats | B | persistence и верная аналитика | backlog |
 | F | Collections/wishlist/series/loans/import/export/restore | B | ownership отдельно от wishlist, safe repeat/restore | backlog |
@@ -261,3 +261,13 @@ Catalog/ISBN переносится перед расширенной вирту
 - [ ] Общий шкаф/полка для партии — после модели размещения D.
 
 См. [протокол и acceptance](docs/SCAN-BATCH-REVIEW.md). Проверки implementation и финальная приёмка учитываются отдельно; этап C целиком не закрывается.
+
+### Продолжение C — private covers и порядок приёмки (2026-10-16)
+
+- [x] Реализация CoverAsset, private upload/read, owner validation, MIME/magic/decode/byte/pixel bounds и EXIF stripping.
+- [x] Галерея/фото, crop/rotate/reset/cancel, применение к copy и review draft, возврат automatic и placeholder.
+- [x] Автоматические регрессии обработки изображений/геометрии; расширение PostgreSQL HTTP suite для полного private-cover пути.
+- [ ] Физическая приёмка камеры, picker и crop UX — **по решению владельца после сборки функциональности приложения**, не блокирует текущую разработку.
+- [ ] До production: retention/лимиты совокупного storage, backup/restore изображений, масштабирование private storage.
+
+Описание: [private covers](docs/PRIVATE-COVERS.md). Изменение требований владельца: ручные Android-проверки пока не проводим; автоматические проверки кода/API сохраняются. Следующие зависимости: оставшийся внешний title/author search и стили заглушки, затем D (server placement, комнаты/шкафы/секции/полки и реальный интерфейс).

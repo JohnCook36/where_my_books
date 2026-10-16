@@ -3,6 +3,7 @@ import { Prisma, type ScanDraft as StoredDraft } from '@prisma/client';
 import type { ConfirmScanDraftItem, ConfirmScanDraftsResponse, CreateBookRequest, ScanConfirmationResult, ScanDraft, ScanDraftPayload, UpdateScanDraftRequest } from '@where-my-books/shared';
 import { isbn13 } from '@where-my-books/shared';
 import { BooksService, lockCopyOperation } from '../books/books.service.js';
+import { validateOwnedCoverSelection } from '../covers/cover-access.js';
 import { PrismaService } from '../prisma.service.js';
 import { catalogCoverUri } from './providers.js';
 
@@ -38,6 +39,7 @@ export class ScanDraftsService {
   async update(userId: string, id: string, dto: UpdateScanDraftRequest) {
     // A scanned ISBN cannot silently become a different edition while editing its review.
     if ('isbn' in dto.payload && dto.payload.isbn !== undefined) throw new BadRequestException('Для другого ISBN создайте отдельный черновик');
+    if (dto.payload.automaticCoverUri && (!dto.payload.automaticCoverUri.startsWith('https://') || !catalogCoverUri(dto.payload.automaticCoverUri))) throw new BadRequestException('Недопустимый источник автоматической обложки');
     if (dto.payload.coverUri && (!dto.payload.coverUri.startsWith('https://') || !catalogCoverUri(dto.payload.coverUri))) throw new BadRequestException('Недопустимый источник обложки');
     if (dto.reviewed && !readyPayload(dto.payload)) throw new BadRequestException('Для подтверждения укажите название и автора');
     return this.prisma.$transaction(async (tx) => {
@@ -49,6 +51,7 @@ export class ScanDraftsService {
         if (draft.revision === dto.baseRevision + 1 && draft.reviewed === dto.reviewed && canonical(draft.payload as ScanDraftPayload) === canonical(dto.payload)) return this.response(draft);
         throw new ConflictException('Черновик изменён на другом устройстве. Загрузите актуальную версию.');
       }
+      await validateOwnedCoverSelection(tx, userId, dto.payload);
       return this.response(await tx.scanDraft.update({ where: { id }, data: { payload: JSON.parse(JSON.stringify(dto.payload)) as Prisma.InputJsonValue, reviewed: dto.reviewed, revision: { increment: 1 } } }));
     });
   }

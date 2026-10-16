@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { Prisma, ReadingStatus } from '@prisma/client';
 import type { CreateBookRequest, LibraryBookResponse, ListBooksResponse, UpdateBookRequest, UpdateReadingProgressRequest, UpdateReadingStatusRequest } from '@where-my-books/shared';
 import { isbn13 } from '@where-my-books/shared';
+import { validateOwnedCoverSelection } from '../covers/cover-access.js';
 import { catalogCoverUri } from '../catalog/providers.js';
 import { PrismaService } from '../prisma.service.js';
 
@@ -53,6 +54,10 @@ export class BooksService {
       const existing = await tx.bookCopy.findUnique({ where: { userId_clientRequestId: { userId, clientRequestId: dto.clientRequestId } }, include });
       if (existing) return replay(existing);
     }
+    const coverMode = dto.coverMode ?? (dto.coverAssetId ? 'custom' : coverUri ? 'catalog' : 'automatic');
+    const coverAssetId = coverMode === 'custom' ? dto.coverAssetId ?? null : null;
+    await validateOwnedCoverSelection(tx, userId, { coverMode, coverAssetId });
+    const automaticCoverUri = this.cover(dto.automaticCoverUri === undefined ? dto.coverUri : dto.automaticCoverUri);
     let editionId = dto.editionId;
     if (editionId) {
       const ownCopy = await tx.bookCopy.findFirst({ where: { userId, editionId } });
@@ -61,10 +66,10 @@ export class BooksService {
       const names = this.authorNames(dto.authors ?? [authorName]);
       const authors = await Promise.all(names.map((name) => tx.author.upsert({ where: { name }, create: { name }, update: {} })));
       const work = await tx.bookWork.create({ data: { title, description: dto.description ?? null, authors: { create: authors.map((a) => ({ authorId: a.id })) } } });
-      const edition = await tx.edition.create({ data: { workId: work.id, pageCount: dto.totalPages, isbn: isbn ?? null, publisher: dto.publisher ?? null, publicationYear: dto.publicationYear ?? null, language: dto.language ?? null, catalogSource: dto.catalogSource ?? null, externalId: dto.externalId ?? null, coverUri } });
+      const edition = await tx.edition.create({ data: { workId: work.id, pageCount: dto.totalPages, isbn: isbn ?? null, publisher: dto.publisher ?? null, publicationYear: dto.publicationYear ?? null, language: dto.language ?? null, catalogSource: dto.catalogSource ?? null, externalId: dto.externalId ?? null, coverUri: automaticCoverUri } });
       editionId = edition.id;
     }
-    const copy = await tx.bookCopy.create({ data: { userId, editionId, clientRequestId: dto.clientRequestId ?? null, requestHash, coverUri }, include });
+    const copy = await tx.bookCopy.create({ data: { userId, editionId, clientRequestId: dto.clientRequestId ?? null, requestHash, coverUri, coverMode, coverAssetId }, include });
     if (dto.clientRequestId) await tx.scanDraft.deleteMany({ where: { id: dto.clientRequestId, userId } });
     return this.toResponse(copy);
   }
@@ -79,7 +84,10 @@ export class BooksService {
     const coverUri = dto.coverUri === undefined ? current.coverUri : this.cover(dto.coverUri);
     return this.prisma.$transaction(async (tx) => {
       // Personal metadata corrections must never mutate another copy's edition/work.
-      const metadataChanged = Object.keys(dto).some((key) => key !== 'coverUri');
+      const coverMode = dto.coverMode ?? (dto.coverAssetId ? 'custom' : dto.coverUri !== undefined ? (dto.coverUri ? 'catalog' : 'automatic') : current.coverMode);
+      const coverAssetId = coverMode === 'custom' ? dto.coverAssetId === undefined ? current.coverAssetId : dto.coverAssetId : null;
+      await validateOwnedCoverSelection(tx, userId, { coverMode, coverAssetId });
+      const metadataChanged = Object.entries(dto).some(([key, value]) => value !== undefined && !['coverUri', 'coverMode', 'coverAssetId', 'automaticCoverUri'].includes(key));
       let editionId = current.editionId;
       if (metadataChanged) {
         const names = this.authorNames(dto.authors ?? (dto.author ? [dto.author] : current.edition.work.authors.map(({ author }) => author.name)));
@@ -88,7 +96,7 @@ export class BooksService {
         const edition = await tx.edition.create({ data: { workId: work.id, pageCount: dto.totalPages ?? current.edition.pageCount, isbn, publisher: dto.publisher ?? current.edition.publisher, publicationYear: dto.publicationYear ?? current.edition.publicationYear, language: dto.language ?? current.edition.language, catalogSource: dto.catalogSource ?? current.edition.catalogSource, externalId: dto.externalId ?? current.edition.externalId, coverUri: current.edition.coverUri } });
         editionId = edition.id;
       }
-      return this.toResponse(await tx.bookCopy.update({ where: { id }, data: { editionId, coverUri }, include }));
+      return this.toResponse(await tx.bookCopy.update({ where: { id }, data: { editionId, coverUri, coverMode, coverAssetId }, include }));
     });
   }
 
@@ -129,6 +137,8 @@ export class BooksService {
     const work = book.edition.work;
     return {
       id: book.id,
+      coverMode: book.coverMode,
+      ...(book.coverAssetId ? { coverAssetId: book.coverAssetId } : {}),
       ...(book.coverUri ? { coverUri: book.coverUri } : {}),
       editionId: book.editionId,
       status: book.status.toLowerCase() as LibraryBookResponse['status'],

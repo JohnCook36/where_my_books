@@ -69,3 +69,8 @@ Notion: отдельный единственный Development HQ, overview/ful
 1 ISBN→camera→backend→edition→cover→save→restart. 2 Unknown→manual→save. 3 Existing ISBN→open or new independent copy, no double callback duplicate. 4 Cabinet/section/shelf/place/reorder/restart/search. 5 Current/+10/server/spine/global mode. 6 A/B owner isolation including direct API. 7 Bulk/dedup/confirm/persist/isolated errors. 8 Covers/select/persist/own photo/relogin/broken URL. 9 API down/retry/no loss.
 Камера: обязательный настоящий Android. Typecheck/lint/unit/API/migration/E2E/Expo Doctor/build по значимости. При failure сначала минимальный тест; полный gate после блока. Длительная проверка не означает успех; безопасная независимая работа продолжается.
 DoD: logic+UI+API+error states+tests+regression+green CI+docs+Notion+scenario evidence. Техническая готовность отдельно от пользовательской приёмки. Отчёт: реализовано/проверено/GitHub/Notion/проблемы/следующий блок.
+
+
+## Изменение порядка проверки — 2026-10-16
+
+Владелец попросил продолжать сборку приложения без текущих ручных проверок на Android: сначала реализовать приложение, затем смотреть на устройстве. Android acceptance переносится на последующий этап, не блокирует текущую разработку и не помечается пройденной. Проверки TypeScript, линтера, бизнес-логики, API и миграций сохраняются. Требования сканера и итоговая приёмка не отменяются.

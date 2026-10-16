@@ -11,8 +11,16 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Разрешите WhereMyBook использовать камеру для сканирования ISBN.",
+          "cameraPermission": "Разрешите WhereMyBook использовать камеру для сканирования ISBN и фотографирования обложек.",
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Разрешите WhereMyBook выбрать фотографию для обложки книги.",
+          "cameraPermission": "Разрешите WhereMyBook фотографировать обложки книг.",
+          "microphonePermission": false
         }
       ]
     ],

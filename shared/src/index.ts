@@ -3,3 +3,5 @@ export * from './library/models.js';
 export * from './contracts/index.js';
 export * from './catalog/isbn.js';
 export * from './catalog/models.js';
+export * from './covers/models.js';
+export * from './covers/crop.js';
