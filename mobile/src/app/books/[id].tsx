@@ -1,4 +1,44 @@
-import { AppHeader, EmptyState, ScreenContainer, ScreenContent } from '@where-my-books/ui/native';
-import { useLocalSearchParams } from 'expo-router';
-import { initialBooks } from '../../features/library/mockBooks';
-export default function BookDetailsScreen() { const { id } = useLocalSearchParams<{ id: string }>(); const book = initialBooks.find((item) => item.id === id); return <ScreenContainer><ScreenContent><AppHeader back title={book?.title ?? 'Книга'} {...(book ? { subtitle: book.author } : {})} />{book ? <EmptyState title={book.status} message={`${book.currentPage} / ${book.totalPages} страниц`} /> : <EmptyState title="Книга не найдена" />}</ScreenContent></ScreenContainer>; }
+import styled from '@emotion/native';
+import { formatReadingProgress, type LibraryBookResponse, type ReadingStatus } from '@where-my-books/shared';
+import { Alert, TextInput } from 'react-native';
+import { useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { AppHeader, ErrorState, LoadingState, PillButton, ScreenContainer, ScreenContent, ScreenScroll, SurfaceCard } from '@/components';
+import { CoverStylePicker } from '../../features/catalog/CoverStylePicker';
+import { UserCoverEditor } from '../../features/catalog/UserCoverEditor';
+import { BookCover } from '../../features/catalog/BookCover';
+import { colors, spacing, radii } from '@/theme';
+import { api } from '../../api/client';
+
+const Caption = styled.Text({ color: colors.inkSecondary, marginBottom: spacing.sm });
+const BackButton = styled.Pressable({ alignSelf: 'flex-start', marginBottom: spacing.sm, padding: spacing.xs });
+const BackLabel = styled.Text({ color: colors.inkSecondary });
+const StatusRow = styled.View({ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginVertical: spacing.md });
+const Field = styled(TextInput)({ borderColor: colors.border, borderWidth: 1, borderRadius: radii.md, padding: spacing.sm, marginBottom: spacing.xs });
+const statuses: ReadingStatus[] = ['want_to_read', 'reading', 'finished', 'dnf'];
+const labels: Record<ReadingStatus, string> = { want_to_read: 'Хочу прочитать', reading: 'Читаю', finished: 'Прочитано', dnf: 'Брошено' };
+
+export default function BookDetailsScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const [book, setBook] = useState<LibraryBookResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState('');
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [totalPages, setTotalPages] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => { if (id) void api.book(id).then((loaded) => { setBook(loaded); setTitle(loaded.work.title); setAuthor(loaded.work.authors.map((item) => item.name).join(', ')); setTotalPages(String(loaded.progress.totalPages)); }).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Ошибка загрузки')); }, [id]);
+  if (error && !book) return <ScreenContainer><ScreenContent><ErrorState message={error} /></ScreenContent></ScreenContainer>;
+  if (!book) return <ScreenContainer><ScreenContent><LoadingState /></ScreenContent></ScreenContainer>;
+  const run = async (action: () => Promise<LibraryBookResponse | void>) => { setBusy(true); setError(null); try { const updated = await action(); if (updated) setBook(updated); } catch (err) { setError(err instanceof Error ? err.message : 'Не удалось сохранить изменения'); } finally { setBusy(false); } };
+  const updatePage = () => { const value = Number(page); if (!Number.isInteger(value)) return; void run(() => api.updateProgress(book.id, value)); };
+  const adjustPage = (delta: number) => void run(() => api.updateProgress(book.id, Math.min(book.progress.currentPage + delta, book.progress.totalPages)));
+  const saveDetails = () => { setNotice(null); void run(async () => { const updated = await api.updateBook(book.id, { title, author, totalPages: totalPages.trim() ? Number(totalPages) : 0 }); setNotice('Изменения сохранены'); return updated; }); };
+  const goBack = () => { if (router.canGoBack()) router.back(); else router.replace('/(tabs)/library'); };
+  const remove = () => Alert.alert('Удалить книгу?', 'Книга и её прогресс будут удалены.', [{ text: 'Отмена', style: 'cancel' }, { text: 'Удалить', style: 'destructive', onPress: () => void run(async () => { await api.deleteBook(book.id); router.replace('/(tabs)/library'); }) }]);
+  return <ScreenContainer><ScreenScroll><ScreenContent><BackButton accessibilityRole="button" onPress={goBack}><BackLabel>Назад</BackLabel></BackButton><AppHeader title={book.work.title} subtitle={book.work.authors.map((item) => item.name).join(', ')} /><BookCover coverStyle={book.coverStyle} mode={book.coverMode} assetId={book.coverAssetId} uri={book.coverMode === 'automatic' ? book.edition.coverUri : book.coverUri ?? book.edition.coverUri} title={book.work.title} author={book.work.authors.map((a) => a.name).join(", ")} /><CoverStylePicker value={book.coverStyle} title={book.work.title} author={book.work.authors.map((a) => a.name).join('; ')} disabled={busy || imageBusy} onChange={(coverStyle) => void run(() => api.updateBook(book.id, { coverStyle, coverMode: 'placeholder', coverAssetId: null, coverUri: null }))} /><UserCoverEditor disabled={busy || imageBusy} onBusy={setImageBusy} onSelected={(asset) => void run(() => api.updateBook(book.id, { coverMode: 'custom', coverAssetId: asset.id, coverUri: null }))} /><StatusRow><PillButton label="Вернуть автоматическую обложку" variant="secondary" disabled={busy || imageBusy} onPress={() => void run(() => api.updateBook(book.id, { coverMode: 'automatic', coverAssetId: null, coverUri: null }))} /><PillButton label="Типографическая обложка" variant="secondary" disabled={busy || imageBusy} onPress={() => void run(() => api.updateBook(book.id, { coverMode: 'placeholder', coverAssetId: null, coverUri: null }))} /></StatusRow><Caption>{book.edition.isbn ? `ISBN ${book.edition.isbn}` : "ISBN не указан"} · {book.edition.publisher ?? "Издательство не указано"}</Caption><SurfaceCard><Caption>{formatReadingProgress(book.progress, 'pages')} · {labels[book.status]}</Caption><StatusRow>{statuses.map((status) => <PillButton key={status} label={labels[status]} variant={status === book.status ? 'primary' : 'secondary'} disabled={busy} onPress={() => void run(() => api.updateStatus(book.id, status))} />)}</StatusRow><Caption>Быстрый прогресс</Caption><StatusRow>{[5, 10, 25].map((delta) => <PillButton key={delta} label={`+${delta}`} disabled={busy || book.progress.totalPages <= 0} onPress={() => adjustPage(delta)} />)}</StatusRow><Caption>Текущая страница</Caption><Field value={page} onChangeText={setPage} placeholder={String(book.progress.currentPage)} keyboardType="number-pad" /><PillButton label="Сохранить прогресс" disabled={busy} onPress={updatePage} /></SurfaceCard><SurfaceCard><Caption>Данные книги</Caption><Field value={title} onChangeText={setTitle} placeholder="Название" /><Field value={author} onChangeText={setAuthor} placeholder="Автор" /><Field value={totalPages} onChangeText={setTotalPages} placeholder="Страницы" keyboardType="number-pad" /><PillButton label={busy ? 'Сохраняем…' : 'Сохранить книгу'} disabled={busy || !title.trim() || !author.trim() || Number(totalPages) < 0} onPress={saveDetails} /><PillButton label="Удалить книгу" variant="secondary" disabled={busy} onPress={remove} /></SurfaceCard>{notice ? <Caption>{notice}</Caption> : null}{error ? <ErrorState message={error} /> : null}</ScreenContent></ScreenScroll></ScreenContainer>;
+}

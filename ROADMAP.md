@@ -55,6 +55,8 @@
 
 ## Этап 2. Domain model и API contracts
 
+**Статус: ✅ завершён для MVP-среза**
+
 Цель — подготовить серверную модель и контракты до реализации backend.
 
 - [x] `Author`;
@@ -68,55 +70,61 @@
 - [x] `ShelfPlacement`;
 - [x] `ProgressDisplayMode`;
 - [x] `UserSettings`;
-- [ ] зафиксировать глобальную стратегию ID;
-- [ ] определить DTO/API contracts;
-- [ ] описать разделение metadata и user-owned data;
-- [ ] подготовить модели к будущей синхронизации;
-- [ ] покрыть runtime-логику и контракты unit-тестами по мере их появления.
+- [x] зафиксировать глобальную стратегию ID (UUID на сервере, string в контрактах);
+- [x] определить DTO/API contracts;
+- [x] описать разделение metadata и user-owned data;
+- [x] подготовить модели к будущей синхронизации (timestamps);
+- [x] покрыть runtime-логику и контракты unit-тестами по мере их появления.
 
 На этом этапе не реализуются SQLite, migrations, local repositories и local database schema.
 
 ## Этап 3. Backend foundation
 
+**Статус: 🟡 foundation готов, acceptance MVP в работе**
+
 Backend реализуется раньше полноценного mobile data layer.
 
-- [ ] NestJS foundation;
-- [ ] PostgreSQL + Prisma;
-- [ ] Prisma schema и migrations;
-- [ ] registration/login;
-- [ ] access/refresh session model;
-- [ ] API contracts;
-- [ ] API библиотеки;
-- [ ] API полок;
-- [ ] API reading progress;
-- [ ] API settings;
-- [ ] глобальные IDs;
-- [ ] timestamps и versioning для будущей синхронизации.
+- [x] NestJS foundation;
+- [x] PostgreSQL + Prisma;
+- [x] Prisma schema и migrations;
+- [x] registration/login;
+- [x] access/refresh session model;
+- [x] API contracts;
+- [x] API библиотеки;
+- [ ] API полок (после MVP);
+- [x] API reading progress;
+- [x] API settings;
+- [x] глобальные IDs;
+- [x] timestamps для будущей синхронизации.
 
 Backend проектируется с учётом возможного будущего offline mobile storage.
 
 ## Этап 4. Mobile API integration и Library CRUD
 
-- [ ] API client;
-- [ ] mobile data layer без SQLite как source of truth;
-- [ ] loading/error states для сетевых данных;
-- [ ] библиотека на backend;
-- [ ] добавление, редактирование и удаление;
-- [ ] Book Details;
+**Статус: 🟡 MVP-срез в работе**
+
+- [x] API client;
+- [x] mobile data layer без SQLite как source of truth;
+- [x] loading/error states для сетевых данных;
+- [x] библиотека на backend;
+- [x] добавление и удаление API (редактирование — через детали в следующем срезе);
+- [x] Book Details;
 - [ ] поиск внутри своей библиотеки;
 - [ ] фильтры и сортировки;
 - [ ] несколько экземпляров одного произведения.
 
 ## Этап 5. Reading Progress
 
-- [ ] current page;
-- [ ] `% / страницы`;
-- [ ] быстрые действия `+5`, `+10`, `+25`;
-- [ ] ручной ввод;
+**Статус: 🟡 MVP-срез в работе**
+
+- [x] current page;
+- [x] `% / страницы` в shared и backend model;
+- [ ] быстрые действия `+5`, `+10`, `+25` (следующий UI-срез);
+- [x] ручной ввод;
 - [ ] даты начала и окончания;
 - [ ] история прогресса;
 - [ ] progress overlay;
-- [ ] сохранение через backend.
+- [x] сохранение через backend.
 
 ## Этап 6. Virtual Shelf MVP
 
@@ -221,3 +229,55 @@ React + TypeScript + Vite + Emotion
 - [ ] прогресс;
 - [ ] статистика;
 - [ ] профиль и настройки.
+
+
+## Полный продукт: актуализация 2026-10-16
+
+Предыдущие отметки выше сохранены как история `feat/usable-mvp`, а не доказательство merge в main или финальной приёмки. Сверка веток: [audit](docs/AUDIT-2026-10-16.md). Требования: [product](docs/PRODUCT-REQUIREMENTS.md). Notion HQ: https://app.notion.com/p/3fa043746cc681319116c2663a49797a
+
+| Этап | Содержание | Зависимости | Acceptance | Статус |
+|---|---|---|---|---|
+| A | Audit / HQ / матрица / план | — | SHA/API/CI/риски зафиксированы | аудит и HQ зафиксированы |
+| B | Auth / PostgreSQL / CRUD / owner isolation / idempotency | A | live PG, два аккаунта, restart, CI | базовый auth/CRUD проверен; полный B открыт |
+| C | ISBN / Google + OpenLibrary / edition / covers / camera / bulk | B minimal | сценарии 1,2,3,7,8,9 и настоящий Android | scanner/review/batch/covers реализованы; оставшиеся пункты открыты |
+| D | Комнаты/шкафы/секции/полки/позиции/корешки/DnD/Undo | B | сценарии 4,5 и доступная перестановка | backlog |
+| E | Diary/quotes/history/sessions/timer/goals/stats | B | persistence и верная аналитика | backlog |
+| F | Collections/wishlist/series/loans/import/export/restore | B | ownership отдельно от wishlist, safe repeat/restore | backlog |
+| G | Sync protocol и Vite Web, offline только после дизайна | B | два устройства, конфликты/удаления | backlog |
+| H | Public/friends/reviews/recommendations/privacy/moderation | B,E,F | права и приватность проверены | backlog |
+| I | Regression/a11y/performance/backup/Android+iOS/production | B–H | release gates и приёмка | backlog |
+
+Catalog/ISBN переносится перед расширенной виртуальной библиотекой как явно согласованный владельцем приоритет. Этапы 0–13 выше не удаляются. MVP не является завершением продукта.
+
+Следующие поставки C: (1) ISBN+metadata+сохранение выбора+камера; (2) durable bulk queue и batch confirm; (3) private photo upload/crop/rotate/reset и cover policy; (4) real Android acceptance. Каждый блок — один связный PR с тестами и документацией, не отдельный PR на файл.
+
+### Продолжение C — review drafts и партия (2026-10-16)
+
+- [x] Реализация сохранения редактируемого payload/обложки и восстановления формы.
+- [x] Реализация ревизий, PATCH replay и защиты от перезаписи на другом устройстве.
+- [x] Реализация готовности к партии, confirm-all, отдельных результатов и безопасного повторного подтверждения.
+- [x] PostgreSQL/HTTP acceptance backend revision `73606e1`: CI run `38829528333` success, включая частичный DB-сбой и rollback.
+- [ ] Ручная приёмка batch UX/navigation на настоящем Android/iOS.
+- [ ] Общий шкаф/полка для партии — после модели размещения D.
+
+См. [протокол и acceptance](docs/SCAN-BATCH-REVIEW.md). Проверки implementation и финальная приёмка учитываются отдельно; этап C целиком не закрывается.
+
+### Продолжение C — private covers и порядок приёмки (2026-10-16)
+
+- [x] Реализация CoverAsset, private upload/read, owner validation, MIME/magic/decode/byte/pixel bounds и EXIF stripping.
+- [x] Галерея/фото, crop/rotate/reset/cancel, применение к copy и review draft, возврат automatic и placeholder.
+- [x] Автоматические регрессии обработки изображений/геометрии; расширение PostgreSQL HTTP suite для полного private-cover пути.
+- [ ] Физическая приёмка камеры, picker и crop UX — **по решению владельца после сборки функциональности приложения**, не блокирует текущую разработку.
+- [ ] До production: retention/лимиты совокупного storage, backup/restore изображений, масштабирование private storage.
+
+Описание: [private covers](docs/PRIVATE-COVERS.md). Изменение требований владельца: ручные Android-проверки пока не проводим; автоматические проверки кода/API сохраняются. Следующие зависимости: оставшийся внешний title/author search и стили заглушки, затем D (server placement, комнаты/шкафы/секции/полки и реальный интерфейс).
+
+### Продолжение C — title/author fallback и стили (2026-10-16)
+
+- [x] Реализован нормализованный поиск Google/OpenLibrary по названию/автору с пагинацией, ограничениями, cache/coalescing и partial outage.
+- [x] Work/edition различаются; нет подмены scanned ISBN или автоматической work cover.
+- [x] Модальный поиск, выбор ISBN/Google edition, перенос только title/authors, owner-scoped «уже в библиотеке».
+- [x] Четыре стиля типографической обложки, shared enum, UI tokens и персональное сохранение copy/review.
+- [ ] Полная native UX-приёмка после сборки приложения — по решению владельца.
+
+[Контракт и проверки](docs/CATALOG-SEARCH-STYLES.md). Следующий функциональный блок D: серверные комнаты/шкафы/секции/полки/позиции, реальные корешки и общее место партии. Не считать C или весь продукт принятыми только по написанному коду/CI.

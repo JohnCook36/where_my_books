@@ -5,20 +5,12 @@
   "type": "module",
   "types": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./native": "./src/native.ts"
+    ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "peerDependencies": {
-    "@emotion/native": "^11.11.0",
-    "react": ">=19.2.0",
-    "react-native": ">=0.86.0",
-    "react-native-reanimated": ">=4.5.0"
-  },
   "devDependencies": {
-    "@types/react": "~19.2.2",
     "typescript": "~6.0.3"
   }
 }
