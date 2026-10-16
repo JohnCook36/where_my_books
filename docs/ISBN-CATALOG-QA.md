@@ -7,8 +7,8 @@
 - Выбор обложки среди кандидатов совпавшего ISBN, preview и fallback при image error. Сохраняется override копии; не зависит от будущего ответа каталога.
 - Atomic work/edition/copy create, UUID clientRequestId, concurrent replay returns same copy; дополнительная copy может явно ссылаться на собственное editionId. Персональная правка создаёт отдельный snapshot, не меняя остальные copies.
 - expo-camera совместимой версии 57: EAN13, frame, continuous autofocus (autofocus off в Expo API), torch, permission/settings, mount error/retry, foreground/focus lifecycle, haptics, callback suppression.
-- Серверная очередь ISBN до 50; canonical dedup, resume после перезапуска/входа; отдельное подтверждение каждой книги. Ключ сохранения = draft UUID. При сбое после POST можно повторно открыть draft: новая copy не создаётся.
-- Unknown page count: 0 означает «неизвестно», а не выдуманный объём; добавление не блокируется. Расширенная audio-модель и унификация unknown labels — следующие блоки.
+- Серверная очередь ISBN до 50; canonical dedup, resume после перезапуска/входа; отдельное подтверждение каждой книги. Ключ сохранения = draft UUID. Copy и удаление соответствующего draft выполняются атомарно; при повторе POST новая copy не создаётся, изменённый payload с тем же ключом получает 409.
+- Unknown page count: 0 означает «неизвестно», а не выдуманный объём; добавление не блокируется. Shared подпись «Объём не указан», быстрый прирост disabled до ввода объёма. Расширенная audio-модель — следующий блок.
 
 ## Не завершено (не включать в Done этапа C)
 - Bulk review/подтверждение всех одной кнопкой и общая полка.

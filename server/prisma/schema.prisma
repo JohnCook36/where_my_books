@@ -97,6 +97,7 @@ model BookCopy {
   editionId    String       @db.Uuid
   status       ReadingStatus @default(want_to_read)
   clientRequestId String?      @db.Uuid
+  requestHash     String?
   coverUri      String?
   currentPage  Int          @default(0)
   spineColor   String       @default("#2C4A3E")

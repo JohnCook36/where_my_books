@@ -76,7 +76,8 @@ export const CurrentReadingCard = ({
         />
       </ProgressWrap>
 
-      <PillButton label="+ 10 страниц" onPress={addPages} />
+      <PillButton label="+ 10 страниц" disabled={book.totalPages <= 0} onPress={addPages} />
+      {book.totalPages <= 0 ? <Author>Укажите количество страниц в карточке, чтобы обновлять прогресс.</Author> : null}
     </SurfaceCard>
   );
 };

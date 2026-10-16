@@ -37,6 +37,8 @@ export const formatReadingProgress = (
   progress: ReadingProgress,
   mode: ProgressDisplayMode,
 ): string => {
+  if (!Number.isFinite(progress.totalPages) || progress.totalPages <= 0) return 'Объём не указан';
+
   if (mode === 'percentage') {
     return `${getReadingProgressPercent(progress)}%`;
   }

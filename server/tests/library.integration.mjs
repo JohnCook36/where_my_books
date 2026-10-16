@@ -30,7 +30,9 @@ try {
   await call('/books', { status: 401 });
   const payload = { title: 'Real database book', author: 'Author A', authors: ['Author A', 'Author B'], totalPages: 120, isbn: '0-306-40615-2', publisher: 'Test publisher', publicationYear: 1980, catalogSource: 'open_library', externalId: '/books/TEST', coverUri: 'https://covers.openlibrary.org/b/id/1-L.jpg', clientRequestId: randomUUID() };
   const [one, replay] = await Promise.all([call('/books', { token: a.accessToken, method: 'POST', status: 201, body: payload }), call('/books', { token: a.accessToken, method: 'POST', status: 201, body: payload })]);
-  assert.equal(one.id, replay.id); assert.equal(one.edition.isbn, '9780306406157'); assert.equal(one.work.authors.length, 2); assert.equal(one.coverUri, payload.coverUri);
+  assert.equal(one.id, replay.id);
+  await call('/books', { token: a.accessToken, method: 'POST', status: 409, body: { ...payload, title: 'Changed retry payload' } });
+  await call(`/books/${one.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { title: null } }); assert.equal(one.edition.isbn, '9780306406157'); assert.equal(one.work.authors.length, 2); assert.equal(one.coverUri, payload.coverUri);
   assert.equal((await call('/books', { token: a.accessToken })).books.length, 1);
   const second = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { ...payload, clientRequestId: randomUUID(), editionId: one.editionId } });
   assert.notEqual(one.id, second.id); assert.equal(one.editionId, second.editionId);
@@ -58,6 +60,7 @@ try {
   const confirmed = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { ...payload, clientRequestId: draft.id } });
   const confirmedAgain = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { ...payload, clientRequestId: draft.id } });
   assert.equal(confirmed.id, confirmedAgain.id);
+  assert.equal((await call('/scan-drafts', { token: a.accessToken })).drafts.length, 0);
   await call(`/scan-drafts/${draft.id}`, { token: a.accessToken, method: 'DELETE' });
   assert.equal((await call('/scan-drafts', { token: a.accessToken })).drafts.length, 0);
   console.log('PASS: PostgreSQL/HTTP auth, ownership, CRUD, ISBN/cover persistence, concurrent replay, independent copies, progress bounds, durable queue and API restart');

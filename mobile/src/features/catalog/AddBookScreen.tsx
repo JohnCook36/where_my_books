@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Crypto from 'expo-crypto';
 import { Modal } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import type { CatalogEdition, CatalogLookupResponse, CreateBookRequest } from '@where-my-books/shared';
 import { isbn13 } from '@where-my-books/shared';
 import { AppHeader, PillButton, ScreenContainer, ScreenContent, ScreenScroll } from '@/components';
@@ -21,6 +21,13 @@ export function AddBookScreen({ initialIsbn = '', draftId }: { initialIsbn?: str
   // Kept across ambiguous failures. Retrying this operation never creates another copy.
   const requestId = useRef(draftId ?? Crypto.randomUUID());
   const abort = useRef<AbortController | null>(null);
+  const completed = useRef(false);
+  useFocusEffect(useCallback(() => {
+    if (!completed.current || draftId) return;
+    completed.current = false; requestId.current = Crypto.randomUUID();
+    setSaved(undefined); setIsbn(''); setTitle(''); setAuthor(''); setPages('');
+    setResult(undefined); setSelected(undefined); setCover(undefined); setError('');
+  }, [draftId]));
   const select = (edition: CatalogEdition) => { setSelected(edition); setTitle(edition.title); setAuthor(edition.authors.join('; ')); setPages(edition.pageCount ? String(edition.pageCount) : ''); setCover(edition.covers[0]?.uri); };
   const lookup = async (value: string) => {
     const normalized = isbn13(value);
@@ -58,8 +65,7 @@ export function AddBookScreen({ initialIsbn = '', draftId }: { initialIsbn?: str
     try {
       const payload: CreateBookRequest = { title: title.trim(), author: author.trim(), authors: author.split(';').map((a) => a.trim()).filter(Boolean), totalPages, clientRequestId: requestId.current, ...(normalized ? { isbn: normalized } : {}), ...(cover ? { coverUri: cover } : {}) };
       if (selected && selected.isbn === normalized) Object.assign(payload, { publisher: selected.publisher, publicationYear: selected.publicationYear, language: selected.language, description: selected.description, catalogSource: selected.source, externalId: selected.externalId });
-      const book = await api.addBook(payload); setSaved(book.id);
-      if (draftId) await api.removeScanDraft(draftId);
+      const book = await api.addBook(payload); completed.current = true; setSaved(book.id);
       router.replace(`/books/${book.id}`);
     } catch (err) { setError(err instanceof Error ? err.message : 'Не удалось сохранить. Повторите запрос.'); }
     finally { setBusy(false); }

@@ -1,4 +1,5 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import { Prisma, ReadingStatus } from '@prisma/client';
 import type { CreateBookRequest, LibraryBookResponse, ListBooksResponse, UpdateBookRequest, UpdateReadingProgressRequest, UpdateReadingStatusRequest } from '@where-my-books/shared';
 import { isbn13 } from '@where-my-books/shared';
@@ -28,9 +29,16 @@ export class BooksService {
     const isbn = dto.isbn ? isbn13(dto.isbn) : undefined;
     if (dto.isbn && !isbn) throw new BadRequestException('Некорректный ISBN');
     const coverUri = this.cover(dto.coverUri);
+    const requestHash = createHash('sha256').update(JSON.stringify(Object.fromEntries(
+      Object.entries({ ...dto, title, author: authorName, isbn: isbn ?? null, coverUri }).filter(([key]) => key !== 'clientRequestId').sort(([a], [b]) => a.localeCompare(b)),
+    ))).digest('hex');
+    const replay = (existing: BookWithRelations) => {
+      if (existing.requestHash && existing.requestHash !== requestHash) throw new ConflictException('Этот запрос уже сохранил другие данные. Откройте сохранённую книгу или начните добавление нового экземпляра.');
+      return this.toResponse(existing);
+    };
     if (dto.clientRequestId) {
       const existing = await this.prisma.bookCopy.findUnique({ where: { userId_clientRequestId: { userId, clientRequestId: dto.clientRequestId } }, include });
-      if (existing) return this.toResponse(existing);
+      if (existing) return replay(existing);
     }
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -45,14 +53,15 @@ export class BooksService {
           const edition = await tx.edition.create({ data: { workId: work.id, pageCount: dto.totalPages, isbn: isbn ?? null, publisher: dto.publisher ?? null, publicationYear: dto.publicationYear ?? null, language: dto.language ?? null, catalogSource: dto.catalogSource ?? null, externalId: dto.externalId ?? null, coverUri } });
           editionId = edition.id;
         }
-        const copy = await tx.bookCopy.create({ data: { userId, editionId, clientRequestId: dto.clientRequestId ?? null, coverUri }, include });
+        const copy = await tx.bookCopy.create({ data: { userId, editionId, clientRequestId: dto.clientRequestId ?? null, requestHash, coverUri }, include });
+        if (dto.clientRequestId) await tx.scanDraft.deleteMany({ where: { id: dto.clientRequestId, userId } });
         return this.toResponse(copy);
       });
     } catch (error) {
       // Concurrent replays: unique key rolls back the losing entire transaction.
       if (dto.clientRequestId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const existing = await this.prisma.bookCopy.findUnique({ where: { userId_clientRequestId: { userId, clientRequestId: dto.clientRequestId } }, include });
-        if (existing) return this.toResponse(existing);
+        if (existing) return replay(existing);
       }
       throw error;
     }

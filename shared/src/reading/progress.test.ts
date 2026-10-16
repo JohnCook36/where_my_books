@@ -39,7 +39,7 @@ describe('getReadingProgressPercent edge cases', () => {
 
 describe('formatReadingProgress edge cases', () => {
   it('formats invalid page values safely', () => {
-    expect(formatReadingProgress({ currentPage: Number.NaN, totalPages: Number.POSITIVE_INFINITY }, 'pages')).toBe('0 / 0');
+    expect(formatReadingProgress({ currentPage: Number.NaN, totalPages: Number.POSITIVE_INFINITY }, 'pages')).toBe('Объём не указан');
   });
 });
 
@@ -53,4 +53,10 @@ describe('reading progress invariants', () => {
   it('formats an empty page count', () => expect(formatReadingProgress({ currentPage: 0, totalPages: 604 }, 'pages')).toBe('0 / 604'));
   it('formats zero percentage', () => expect(formatReadingProgress({ currentPage: 0, totalPages: 604 }, 'percentage')).toBe('0%'));
   it('formats one hundred percentage', () => expect(formatReadingProgress({ currentPage: 604, totalPages: 604 }, 'percentage')).toBe('100%'));
+});
+
+describe('unknown page count display', () => {
+  it.each(['pages', 'percentage'] as const)('does not invent a total or completion in %s mode', (mode) => {
+    expect(formatReadingProgress({ currentPage: 0, totalPages: 0 }, mode)).toBe('Объём не указан');
+  });
 });
