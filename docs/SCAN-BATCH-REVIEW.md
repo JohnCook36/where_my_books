@@ -39,7 +39,8 @@ Types/lint/unit/server build, Android export и Expo Doctor. Расширенн�
 - mixed batch: conflict + unreviewed + saved;
 - concurrent/repeated confirmation: тот же copyId и без новых копий;
 - реальную ошибку CHECK constraint в PostgreSQL после создания metadata, rollback work/edition и успешное сохранение соседней записи;
-- повтор failed записи после устранения DB-сбоя.
+- повтор failed записи после устранения DB-сбоя;
+- полный сценарий 50 черновиков/50 подтверждений, лимит 51-й записи, dedup при полной очереди, повтор целой партии без дубликатов.
 
 Фактические CI run/commit/results фиксируются в PR и Notion Development Log. Код тестов сам по себе не означает, что они прошли.
 

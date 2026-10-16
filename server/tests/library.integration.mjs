@@ -121,7 +121,32 @@ try {
   } finally { await prisma.$executeRawUnsafe('ALTER TABLE "BookCopy" DROP CONSTRAINT IF EXISTS "WmbIntegrationRejectCopy"'); }
   const retryFailed = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: [{ id: blockedDraft.id, revision: blockedReady.revision }] } });
   assert.equal(retryFailed.results[0].status, 'saved');
-  console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay and API restart');
+  // Exercise the complete supported batch size, not only a three-book sample.
+  await call(`/scan-drafts/${draftTwo.id}`, { token: a.accessToken, method: 'DELETE' });
+  const fixtureIsbn = (index) => {
+    const prefix = `978180000${String(index).padStart(3, '0')}`;
+    const sum = [...prefix].reduce((total, digit, position) => total + Number(digit) * (position % 2 ? 3 : 1), 0);
+    return `${prefix}${(10 - sum % 10) % 10}`;
+  };
+  const fullBatch = [];
+  for (let index = 0; index < 50; index++) {
+    const staged = await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: fixtureIsbn(index) } });
+    const checked = await call(`/scan-drafts/${staged.id}`, { token: a.accessToken, method: 'PATCH', body: { baseRevision: 0, reviewed: true, payload: { title: `Batch fixture ${index}`, author: 'Batch capacity test author', totalPages: 100 } } });
+    fullBatch.push({ id: checked.id, revision: checked.revision });
+  }
+  assert.equal((await call('/scan-drafts', { token: a.accessToken })).drafts.length, 50);
+  assert.equal((await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: fixtureIsbn(0) } })).id, fullBatch[0].id);
+  await call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 400, body: { isbn: fixtureIsbn(50) } });
+  await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 400, body: { items: [...fullBatch, { id: randomUUID(), revision: 0 }] } });
+  const copiesBeforeFullBatch = (await call('/books', { token: a.accessToken })).books.length;
+  const fullResult = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: fullBatch } });
+  assert.equal(fullResult.results.length, 50); assert.ok(fullResult.results.every((result) => result.status === 'saved'));
+  assert.equal(new Set(fullResult.results.map((result) => result.copyId)).size, 50);
+  assert.equal((await call('/scan-drafts', { token: a.accessToken })).drafts.length, 0);
+  const fullReplay = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: fullBatch } });
+  assert.deepEqual(fullReplay.results, fullResult.results);
+  assert.equal((await call('/books', { token: a.accessToken })).books.length, copiesBeforeFullBatch + 50);
+  console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay, API restart and complete 50-book capacity/replay');
 
 } finally {
   await stop();
