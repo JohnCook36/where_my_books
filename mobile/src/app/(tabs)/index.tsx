@@ -1,14 +1,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import styled from '@emotion/native';
 import type { ProgressDisplayMode } from '@where-my-books/shared';
-import { EmptyState, ErrorState, LoadingState, ScreenContainer, ScreenContent, ScreenScroll } from '@/components';
+import { EmptyState, ErrorState, LoadingState, PillButton, ScreenContainer, ScreenContent, ScreenScroll } from '@/components';
 import { colors, spacing, typography } from '@/theme';
 import { VirtualShelfPreview } from '../../features/library/components/VirtualShelfPreview';
 import { CurrentReadingCard } from '../../features/reading/components/CurrentReadingCard';
 import type { LibraryBookPreview } from '../../features/library/types';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { api } from '../../api/client';
-import { Redirect, useFocusEffect } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 
 const Content = styled(ScreenContent)({ gap: spacing.xl });
 const HeaderBlock = styled.View({});
@@ -17,7 +17,7 @@ const Hero = styled.Text({ color: colors.ink, ...typography.display, maxWidth: 3
 const Intro = styled.Text({ color: colors.inkSecondary, ...typography.body, marginTop: spacing.sm, maxWidth: 340 });
 
 export default function HomeScreen() {
-  const auth = useAuth();
+  const auth = useAuth(); const router = useRouter();
   const [books, setBooks] = useState<LibraryBookPreview[]>([]);
   const [progressMode, setProgressMode] = useState<ProgressDisplayMode>('pages');
   const [loading, setLoading] = useState(true);
@@ -42,5 +42,5 @@ export default function HomeScreen() {
   };
   const changeMode = async (mode: ProgressDisplayMode) => { setProgressMode(mode); try { await api.updateSettings(mode); } catch (err) { setError(err instanceof Error ? err.message : 'Не удалось сохранить настройку'); } };
   if (!auth.user) return <Redirect href="/auth/login" />;
-  return <ScreenContainer edges={['top', 'left', 'right']}><ScreenScroll contentContainerStyle={{ paddingBottom: 84 }} showsVerticalScrollIndicator={false}><Content><HeaderBlock><Greeting>BOOKNOOK</Greeting><Hero>Твоя библиотека всегда рядом.</Hero><Intro>Прогресс синхронизируется с твоей библиотекой.</Intro></HeaderBlock>{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : books.length === 0 ? <EmptyState title="Библиотека пока пуста" message="Добавь первую книгу во вкладке «Добавить»." /> : <><VirtualShelfPreview books={books} mode={progressMode} onChangeMode={changeMode} />{currentBook ? <CurrentReadingCard book={currentBook} progressMode={progressMode} onAddPages={addPages} /> : null}</>}</Content></ScreenScroll></ScreenContainer>;
+  return <ScreenContainer edges={['top', 'left', 'right']}><ScreenScroll contentContainerStyle={{ paddingBottom: 84 }} showsVerticalScrollIndicator={false}><Content><HeaderBlock><Greeting>BOOKNOOK</Greeting><Hero>Твоя библиотека всегда рядом.</Hero><Intro>Прогресс синхронизируется с твоей библиотекой.</Intro><PillButton label="Открыть мои шкафы" variant="secondary" onPress={() => router.push('/shelves')} /></HeaderBlock>{loading ? <LoadingState /> : error ? <ErrorState message={error} /> : books.length === 0 ? <EmptyState title="Библиотека пока пуста" message="Добавь первую книгу во вкладке «Добавить»." /> : <><VirtualShelfPreview books={books} mode={progressMode} onChangeMode={changeMode} />{currentBook ? <CurrentReadingCard book={currentBook} progressMode={progressMode} onAddPages={addPages} /> : null}</>}</Content></ScreenScroll></ScreenContainer>;
 }

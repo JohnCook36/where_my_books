@@ -49,6 +49,13 @@ model User {
   settings     UserSettings?
   scanDrafts   ScanDraft[]
   coverAssets  CoverAsset[]
+  storageRooms StorageRoom[]
+  shelves Shelf[]
+  shelfSections ShelfSection[]
+  shelfRows ShelfRow[]
+  shelfPlacements ShelfPlacement[]
+  shelfLayout ShelfLayout?
+  shelfOperations ShelfOperation[]
 }
 
 model Session {
@@ -135,6 +142,9 @@ model BookCopy {
   @@index([userId])
   @@index([editionId])
   @@index([coverAssetId])
+  placement ShelfPlacement?
+
+  @@unique([id, userId])
   @@unique([userId, clientRequestId])
 }
 
@@ -176,4 +186,93 @@ model CoverAsset {
   copies    BookCopy[]
 
   @@unique([userId, checksum])
+}
+
+
+model ShelfLayout {
+  userId String @id @db.Uuid
+  revision Int @default(0)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+model ShelfOperation {
+  userId String @db.Uuid
+  requestId String @db.Uuid
+  requestHash String
+  resultRevision Int
+  undo Json?
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([userId, requestId])
+}
+model StorageRoom {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  name String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shelves Shelf[]
+  @@unique([id, userId])
+  @@index([userId])
+}
+model Shelf {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  roomId String @db.Uuid
+  name String
+  theme String @default("oak")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room StorageRoom @relation(fields: [roomId, userId], references: [id, userId], onDelete: Cascade)
+  sections ShelfSection[]
+  @@unique([id, userId])
+  @@index([userId])
+  @@index([roomId, userId])
+}
+model ShelfSection {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  shelfId String @db.Uuid
+  name String
+  position Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shelf Shelf @relation(fields: [shelfId, userId], references: [id, userId], onDelete: Cascade)
+  rows ShelfRow[]
+  @@unique([id, userId])
+  @@index([userId])
+  @@index([shelfId, userId])
+}
+model ShelfRow {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  sectionId String @db.Uuid
+  name String
+  capacity Int @default(80)
+  position Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  section ShelfSection @relation(fields: [sectionId, userId], references: [id, userId], onDelete: Cascade)
+  placements ShelfPlacement[]
+  @@unique([id, userId])
+  @@index([userId])
+  @@index([sectionId, userId])
+}
+model ShelfPlacement {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  copyId String @unique @db.Uuid
+  rowId String @db.Uuid
+  position Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  copy BookCopy @relation(fields: [copyId, userId], references: [id, userId], onDelete: Cascade)
+  row ShelfRow @relation(fields: [rowId, userId], references: [id, userId], onDelete: Cascade)
+  @@unique([copyId, userId])
+  @@unique([rowId, position])
+  @@index([userId])
 }

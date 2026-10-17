@@ -87,7 +87,7 @@ export const VirtualShelfPreview = ({
   return (
     <>
       <Header>
-        <Title>Моя полка</Title>
+        <Title>Корешки библиотеки</Title>
         <SegmentedControl
           onChange={changeMode}
           options={[{ label: '%', value: 'percentage' }, { label: 'Страницы', value: 'pages' }]}
