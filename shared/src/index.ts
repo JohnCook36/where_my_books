@@ -8,3 +8,4 @@ export * from './covers/crop.js';
 export * from './shelves/models.js';
 export * from './shelves/actions.js';
 export * from './shelves/geometry.js';
+export * from './shelves/locations.js';

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, View, useWindowDimensions } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Crypto from 'expo-crypto';
@@ -14,7 +14,7 @@ import { Field, Note, Row, Choice } from '../catalog/styles';
 import { useReviewNavigationGuard } from '../catalog/useReviewNavigationGuard';
 import { MotionShelfRow } from './MotionShelfRow';
 import { MotionDialog } from './MotionDialog';
-import { copyLocation, rowPath } from './location';
+import { indexShelfLocations } from './location';
 const emptyLayout: ShelfLayout = { revision: 0, rooms: [], shelves: [], sections: [], rows: [], placements: [] };
 type Form = { type: 'create_room' | 'create_shelf' | 'create_section' | 'create_row' | 'rename'; kind?: StorageKind; id?: string };
 const themes: { value: ShelfTheme; label: string }[] = [{ value: 'oak', label: 'Тёплый дуб' }, { value: 'ivory', label: 'Светлый' }, { value: 'night', label: 'Тёмный' }];
@@ -55,11 +55,14 @@ function ShelfWorkspace() {
   const roomShelves = layout.shelves.filter((s) => s.roomId === room?.id); const shelf = roomShelves.find((s) => s.id === shelfId) ?? roomShelves[0];
   const shelfSections = layout.sections.filter((s) => s.shelfId === shelf?.id); const section = shelfSections.find((s) => s.id === sectionId) ?? shelfSections[0];
   const sectionRows = layout.rows.filter((r) => r.sectionId === section?.id); const row = sectionRows.find((r) => r.id === rowId) ?? sectionRows[0];
-  const bookMap = new Map(books.map((book) => [book.id, book]));
+  const bookMap = useMemo(() => new Map(books.map((book) => [book.id, book])), [books]);
+  const locations = useMemo(() => indexShelfLocations(layout), [layout]);
+  const copyLocation = (id: string) => locations.copies.get(id)?.path ?? 'Вне полок';
+  const rowPath = (id: string) => locations.rows.get(id) ?? '';
   const rowBooks = row ? layout.placements.filter((p) => p.rowId === row.id).sort((a, b) => a.position - b.position).flatMap((p) => bookMap.get(p.copyId) ?? []) : [];
   const selected = books.find((b) => b.id === selectedId); const disabled = busy || !!pending;
   const searchText = query.trim().toLocaleLowerCase('ru');
-  const matches = books.filter((book) => `${book.work.title} ${book.work.authors.map((a) => a.name).join(' ')} ${book.edition.isbn ?? ''} ${copyLocation(layout, book.id)}`.toLocaleLowerCase('ru').includes(searchText));
+  const matches = books.filter((book) => `${book.work.title} ${book.work.authors.map((a) => a.name).join(' ')} ${book.edition.isbn ?? ''} ${copyLocation(book.id)}`.toLocaleLowerCase('ru').includes(searchText));
   const loadLatest = async () => { const [data, library] = await Promise.all([api.shelfLayout(), api.books()]); setLayout(data); setBooks(library.books); return data; };
   const execute = async (request: ShelfMutation): Promise<boolean> => {
     if (inFlight.current) return false; inFlight.current = true; setBusy(true); setError(''); setNotice('Сохраняем расположение…');
@@ -123,7 +126,7 @@ function ShelfWorkspace() {
       {room ? <Row>{roomShelves.map((value) => <PillButton key={value.id} label={value.name} variant={value.id === shelf?.id ? 'primary' : 'secondary'} disabled={disabled} onPress={() => setShelfId(value.id)} />)}<PillButton label="+ Шкаф" variant="secondary" disabled={disabled} onPress={() => openForm({ type: 'create_shelf' })} /></Row> : <EmptyState title="Создайте первую комнату" message="Затем добавьте шкаф и повторите расположение домашних полок." />}
       {shelf ? <><Row>{shelfSections.map((value) => <PillButton key={value.id} label={value.name} variant={value.id === section?.id ? 'primary' : 'secondary'} disabled={disabled} onPress={() => setSectionId(value.id)} />)}<PillButton label="+ Секция" variant="secondary" disabled={disabled} onPress={() => openForm({ type: 'create_section' })} /></Row>
         <Row>{sectionRows.map((value) => <PillButton key={value.id} label={`${value.name} · ${layout.placements.filter((p) => p.rowId === value.id).length}/${value.capacity}`} variant={value.id === row?.id ? 'primary' : 'secondary'} disabled={disabled} onPress={() => setRowId(value.id)} />)}{section ? <PillButton label="+ Полка" variant="secondary" disabled={disabled} onPress={() => openForm({ type: 'create_row' })} /> : null}</Row></> : null}
-      {row && shelf ? <><Note>{rowPath(layout, row.id)}</Note><MotionShelfRow key={row.id} books={rowBooks} mode={mode} selectedId={selectedId} theme={shelf.theme} disabled={disabled} onSelect={(id) => { setSelectedId(id); setBookDialog(true); }} onReorder={(from, to) => { const rest = rowBooks.filter((_, index) => index !== from); const book = rowBooks[from]; if (book) void commit({ type: 'move', rowId: row.id, copyIds: [book.id], beforeCopyId: rest[to]?.id ?? null }); }} />
+      {row && shelf ? <><Note>{rowPath(row.id)}</Note><MotionShelfRow key={row.id} books={rowBooks} mode={mode} selectedId={selectedId} theme={shelf.theme} disabled={disabled} onSelect={(id) => { setSelectedId(id); setBookDialog(true); }} onReorder={(from, to) => { const rest = rowBooks.filter((_, index) => index !== from); const book = rowBooks[from]; if (book) void commit({ type: 'move', rowId: row.id, copyIds: [book.id], beforeCopyId: rest[to]?.id ?? null }); }} />
         {!rowBooks.length ? <Note>Полка пока пуста. Добавьте книги из библиотеки.</Note> : <Note>Удерживайте корешок и перетащите. Перенос между полками доступен в карточке книги.</Note>}
         <SegmentedControl value={mode} options={[{ value: 'percentage', label: '%' }, { value: 'pages', label: 'Страницы' }]} onChange={(value) => void changeMode(value)} />
         <Row><PillButton label="Разместить книги" disabled={disabled} onPress={() => { setPicker(true); setChosen([]); setQuery(''); }} /><PillButton label="По названию" variant="secondary" disabled={disabled || rowBooks.length < 2} onPress={() => void commit({ type: 'sort', rowId: row.id, by: 'title' })} /><PillButton label="По автору" variant="secondary" disabled={disabled || rowBooks.length < 2} onPress={() => void commit({ type: 'sort', rowId: row.id, by: 'author' })} /></Row>
@@ -147,20 +150,20 @@ function ShelfWorkspace() {
 {!!deleting ? <>
     <Note>Экземпляры сохранятся в библиотеке. Выберите другое место или явно снимите книги с полок. Отменить удаление контейнера нельзя.</Note>
     <PillButton label="Снять книги с полок" variant={destination === null ? 'primary' : 'secondary'} disabled={disabled} onPress={() => setDestination(null)} />
-    {layout.rows.filter((r) => !descendantRows.includes(r.id)).map((r) => <PillButton key={r.id} label={rowPath(layout, r.id)} variant={destination === r.id ? 'primary' : 'secondary'} disabled={disabled} onPress={() => { setDestination(r.id); setPosition(''); }} />)}
+    {layout.rows.filter((r) => !descendantRows.includes(r.id)).map((r) => <PillButton key={r.id} label={rowPath(r.id)} variant={destination === r.id ? 'primary' : 'secondary'} disabled={disabled} onPress={() => { setDestination(r.id); setPosition(''); }} />)}
     {statusLine}<PillButton label="Подтвердить удаление и сохранить книги" disabled={disabled} onPress={() => void deleteNode()} />
 </> : null}
 {picker ? <>
     <Field accessibilityLabel="Поиск книг для размещения" placeholder="Название, автор, ISBN или место" value={query} onChangeText={setQuery} /><PillButton label={allBooks ? 'Показать только книги вне полок' : 'Показать все книги'} variant="secondary" disabled={disabled} onPress={() => setAllBooks(!allBooks)} />
-    <FlatList style={{ height: Math.min(shelfVisuals.pickerMaxHeight, height * shelfVisuals.pickerScreenFraction) }} data={matches.filter((book) => allBooks || !layout.placements.some((p) => p.copyId === book.id))} keyExtractor={(book) => book.id} initialNumToRender={12} renderItem={({ item }) => <Choice accessibilityRole="checkbox" accessibilityState={{ checked: chosen.includes(item.id) }} disabled={disabled} onPress={() => setChosen((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : ids.length < 50 ? [...ids, item.id] : ids)}><Note>{chosen.includes(item.id) ? '✓ ' : ''}{item.work.title}</Note><Note>{copyLocation(layout, item.id)}</Note><PillButton label="Показать место" variant="secondary" disabled={disabled} onPress={() => { setSelectedId(item.id); const place = layout.placements.find((p) => p.copyId === item.id); if (place) focusRow(layout, place.rowId); setPicker(false); setBookDialog(true); }} /></Choice>} ListEmptyComponent={<Note>Подходящих книг нет.</Note>} />
+    <FlatList style={{ height: Math.min(shelfVisuals.pickerMaxHeight, height * shelfVisuals.pickerScreenFraction) }} data={matches.filter((book) => allBooks || !layout.placements.some((p) => p.copyId === book.id))} keyExtractor={(book) => book.id} initialNumToRender={12} renderItem={({ item }) => <Choice accessibilityRole="checkbox" accessibilityState={{ checked: chosen.includes(item.id) }} disabled={disabled} onPress={() => setChosen((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : ids.length < 50 ? [...ids, item.id] : ids)}><Note>{chosen.includes(item.id) ? '✓ ' : ''}{item.work.title}</Note><Note>{copyLocation(item.id)}</Note><PillButton label="Показать место" variant="secondary" disabled={disabled} onPress={() => { setSelectedId(item.id); const place = layout.placements.find((p) => p.copyId === item.id); if (place) focusRow(layout, place.rowId); setPicker(false); setBookDialog(true); }} /></Choice>} ListEmptyComponent={<Note>Подходящих книг нет.</Note>} />
     {statusLine}<PillButton label={`Разместить на текущей полке · ${chosen.length}/50`} disabled={disabled || !row || !chosen.length} onPress={() => void placeChosen()} />
 </> : null}
 {bookDialog && !!selected ? <>
-    {selected ? <><BookCover title={selected.work.title} author={selected.work.authors.map((a) => a.name).join('; ')} uri={selected.coverMode === 'automatic' ? selected.edition.coverUri : selected.coverUri} mode={selected.coverMode} assetId={selected.coverAssetId} coverStyle={selected.coverStyle} /><Note>{copyLocation(layout, selected.id)}</Note><Note>{formatReadingProgress(selected.progress, mode)}</Note><Row><PillButton label="+10 страниц" disabled={disabled || selected.progress.totalPages <= 0} onPress={() => void updateProgress()} /><PillButton label="Переместить" variant="secondary" disabled={disabled} onPress={() => { setBookDialog(false); setMoveIds([selected.id]); setPosition(''); setDestination(layout.placements.find((p) => p.copyId === selected.id)?.rowId ?? null); }} /><PillButton label="Открыть карточку" variant="secondary" disabled={disabled} onPress={() => { setBookDialog(false); router.push(`/books/${selected.id}`); }} /></Row></> : null}{statusLine}
+    {selected ? <><BookCover title={selected.work.title} author={selected.work.authors.map((a) => a.name).join('; ')} uri={selected.coverMode === 'automatic' ? selected.edition.coverUri : selected.coverUri} mode={selected.coverMode} assetId={selected.coverAssetId} coverStyle={selected.coverStyle} /><Note>{copyLocation(selected.id)}</Note><Note>{formatReadingProgress(selected.progress, mode)}</Note><Row><PillButton label="+10 страниц" disabled={disabled || selected.progress.totalPages <= 0} onPress={() => void updateProgress()} /><PillButton label="Переместить" variant="secondary" disabled={disabled} onPress={() => { setBookDialog(false); setMoveIds([selected.id]); setPosition(''); setDestination(layout.placements.find((p) => p.copyId === selected.id)?.rowId ?? null); }} /><PillButton label="Открыть карточку" variant="secondary" disabled={disabled} onPress={() => { setBookDialog(false); router.push(`/books/${selected.id}`); }} /></Row></> : null}{statusLine}
 </> : null}
 {!!moveIds.length ? <>
     <Note>Порядок выбранных книг сохранится. Перед подтверждением проверим вместимость.</Note><PillButton label="Вне полок" variant={destination === null ? 'primary' : 'secondary'} disabled={disabled} onPress={() => setDestination(null)} />
-    {layout.rows.map((r) => <PillButton key={r.id} label={`${rowPath(layout, r.id)} · ${layout.placements.filter((p) => p.rowId === r.id).length}/${r.capacity}`} variant={destination === r.id ? 'primary' : 'secondary'} disabled={disabled} onPress={() => { setDestination(r.id); setPosition(''); }} />)}
+    {layout.rows.map((r) => <PillButton key={r.id} label={`${rowPath(r.id)} · ${layout.placements.filter((p) => p.rowId === r.id).length}/${r.capacity}`} variant={destination === r.id ? 'primary' : 'secondary'} disabled={disabled} onPress={() => { setDestination(r.id); setPosition(''); }} />)}
     {destination ? <><Note>Позиция на полке, начиная с 1. Пустое поле — в конец.</Note><Field accessibilityLabel="Позиция книги на целевой полке" keyboardType="number-pad" value={position} onChangeText={setPosition} editable={!disabled} /></> : null}
     {statusLine}<PillButton label="Подтвердить перемещение" disabled={disabled} onPress={() => void moveChosen()} />
 </> : null}
