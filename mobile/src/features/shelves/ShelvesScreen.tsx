@@ -66,6 +66,9 @@ function ShelfWorkspace() {
     try {
       const result = await api.mutateShelf(request); const latest = await loadLatest(); setPending(null); setReceipt(result.canUndo && latest.revision === result.revision ? result : undefined); setNotice('Расположение сохранено');
       if (request.action.type === 'move' && request.action.rowId) { focusRow(latest, request.action.rowId); setSelectedId(request.action.copyIds[0]); }
+      if (request.action.type.startsWith('create_') || request.action.type === 'rename') setForm(undefined);
+      if (request.action.type === 'delete') { setDeleting(undefined); setManage(false); }
+      if (request.action.type === 'move') { setPicker(false); setChosen([]); setMoveIds([]); setBookDialog(false); }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {}); return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Ответ не получен. Повторите подтверждение.'); setNotice('');
@@ -161,6 +164,7 @@ function ShelfWorkspace() {
     {destination ? <><Note>Позиция на полке, начиная с 1. Пустое поле — в конец.</Note><Field accessibilityLabel="Позиция книги на целевой полке" keyboardType="number-pad" value={position} onChangeText={setPosition} editable={!disabled} /></> : null}
     {statusLine}<PillButton label="Подтвердить перемещение" disabled={disabled} onPress={() => void moveChosen()} />
 </> : null}
+    {pending ? <PillButton label="Повторить подтверждение без нового действия" disabled={busy} onPress={() => void execute(pending)} /> : null}
   </MotionDialog>
   </ScreenContainer>;
 }

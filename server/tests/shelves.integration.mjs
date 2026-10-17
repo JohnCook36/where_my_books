@@ -50,6 +50,13 @@ export async function testShelves({ call, a, b, restart, prisma }) {
   const version = (await layout()).revision;
   await call(`/books/${ids[1]}`, { token: a.accessToken, method: 'DELETE' }); assert.equal((await layout()).revision, version + 1); assert.deepEqual((await layout()).placements.filter((p) => p.rowId === rowA).map((p) => p.position), [0, 1]);
   await mutate({ type: 'undo', operationId: lastMove.operationId }, { status: 409 });
+  const temporary = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { title: 'Unplaced delete regression', author: 'Shelf author', totalPages: 10 } });
+  await mutate({ type: 'move', rowId: rowB, copyIds: [temporary.id] });
+  const removedFromShelf = await mutate({ type: 'move', rowId: null, copyIds: [temporary.id] });
+  const beforeUnplacedDelete = (await layout()).revision;
+  await call(`/books/${temporary.id}`, { token: a.accessToken, method: 'DELETE' });
+  assert.equal((await layout()).revision, beforeUnplacedDelete + 1);
+  await mutate({ type: 'undo', operationId: removedFromShelf.operationId }, { status: 409 });
   const secondCabinet = randomUUID(); await mutate({ type: 'create_shelf', id: secondCabinet, roomId: room, name: 'Move destination', theme: 'ivory', sections: 1, rows: 1, capacity: 3 });
   const target = (await layout()).rows.find((r) => !rows.some((old) => old.id === r.id)).id;
   await mutate({ type: 'delete', kind: 'shelf', id: cabinet, destinationRowId: target }); assert.equal((await layout()).shelves.length, 1); assert.deepEqual(await order(target), [ids[0], ids[2]]);

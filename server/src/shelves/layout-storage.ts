@@ -17,7 +17,11 @@ export async function writeOrders(tx: Prisma.TransactionClient, userId: string, 
 /** Book deletion participates in layout revision/locking, so it cannot invalidate an Undo silently. */
 export async function detachDeletedCopy(tx: Prisma.TransactionClient, userId: string, copyId: string) {
   const placement = await tx.shelfPlacement.findUnique({ where: { copyId } });
-  if (!placement) return;
+  if (!placement) {
+    // An unplaced copy may still be referenced by the latest Undo snapshot.
+    await tx.shelfLayout.updateMany({ where: { userId }, data: { revision: { increment: 1 } } });
+    return;
+  }
   const copies = await tx.shelfPlacement.findMany({ where: { userId, rowId: placement.rowId }, orderBy: { position: 'asc' } });
   await writeOrders(tx, userId, [{ rowId: placement.rowId, copyIds: copies.filter((p) => p.copyId !== copyId).map((p) => p.copyId) }]);
   await tx.shelfLayout.upsert({ where: { userId }, create: { userId, revision: 1 }, update: { revision: { increment: 1 } } });
