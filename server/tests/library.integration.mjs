@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
+import { testShelves } from './shelves.integration.mjs';
 import { PrismaClient } from '@prisma/client';
 
 if (!process.env.DATABASE_URL || process.env.WMB_INTEGRATION_TEST !== '1') throw new Error('Set DATABASE_URL to a disposable DB and WMB_INTEGRATION_TEST=1');
@@ -236,6 +237,7 @@ try {
   const restoredStyle = await call(`/scan-drafts/${styleDraft.id}`, { token: a.accessToken }); assert.equal(restoredStyle.payload.coverStyle, 'midnight'); assert.equal(restoredStyle.isbn, '9780306406157');
   const styleConfirmation = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: [{ id: styleReady.id, revision: styleReady.revision }] } });
   assert.equal(styleConfirmation.results[0].status, 'saved'); const styleSaved = await call(`/books/${styleConfirmation.results[0].copyId}`, { token: a.accessToken }); assert.equal(styleSaved.coverStyle, 'midnight'); assert.equal(styleSaved.edition.isbn, '9780306406157');
+  await testShelves({ call, a, b, restart: async () => { await stop(); await start(); }, prisma });
   console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay, API restart and complete 50-book capacity/replay; private image upload/normalization, bounds, ACL, draft confirmation, copy override/reset and protected deletion; catalog search/pagination/owner matches, search-to-copy snapshot and per-copy/draft cover styles');
 
 } finally {

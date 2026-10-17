@@ -5,3 +5,6 @@ export * from './catalog/isbn.js';
 export * from './catalog/models.js';
 export * from './covers/models.js';
 export * from './covers/crop.js';
+export * from './shelves/models.js';
+export * from './shelves/actions.js';
+export * from './shelves/geometry.js';

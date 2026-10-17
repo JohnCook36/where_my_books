@@ -1,3 +1,4 @@
+import { lockShelfLayout, detachDeletedCopy } from '../shelves/layout-storage.js';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { Prisma, ReadingStatus } from '@prisma/client';
@@ -7,7 +8,7 @@ import { validateOwnedCoverSelection } from '../covers/cover-access.js';
 import { catalogCoverUri } from '../catalog/providers.js';
 import { PrismaService } from '../prisma.service.js';
 
-const include = { edition: { include: { work: { include: { authors: { include: { author: true } } } } } } } as const;
+const include = { placement: { include: { row: { include: { section: { include: { shelf: { include: { room: true } } } } } } } }, edition: { include: { work: { include: { authors: { include: { author: true } } } } } } } as const;
 type BookWithRelations = Prisma.BookCopyGetPayload<{ include: typeof include }>;
 
 @Injectable()
@@ -113,7 +114,7 @@ export class BooksService {
     return safe;
   }
 
-  async remove(userId: string, id: string): Promise<void> { await this.owned(userId, id); await this.prisma.bookCopy.delete({ where: { id } }); }
+  async remove(userId: string, id: string): Promise<void> { await this.prisma.$transaction(async (tx) => { await lockShelfLayout(tx, userId); await this.owned(userId, id); await detachDeletedCopy(tx, userId, id); await tx.bookCopy.delete({ where: { id } }); }); }
 
   async updateStatus(userId: string, id: string, dto: UpdateReadingStatusRequest): Promise<LibraryBookResponse> {
     await this.owned(userId, id);
@@ -142,6 +143,7 @@ export class BooksService {
       ...(book.coverAssetId ? { coverAssetId: book.coverAssetId } : {}),
       ...(book.coverUri ? { coverUri: book.coverUri } : {}),
       editionId: book.editionId,
+      ...(book.placement ? { location: { rowId: book.placement.rowId, sectionId: book.placement.row.sectionId, shelfId: book.placement.row.section.shelfId, roomId: book.placement.row.section.shelf.roomId, position: book.placement.position, path: [book.placement.row.section.shelf.room.name, book.placement.row.section.shelf.name, book.placement.row.section.name, book.placement.row.name, `Книга ${book.placement.position + 1}`].join(' → ') } } : {}),
       status: book.status.toLowerCase() as LibraryBookResponse['status'],
       progress: { currentPage: book.currentPage, totalPages: book.edition.pageCount },
       spineColor: book.spineColor,
