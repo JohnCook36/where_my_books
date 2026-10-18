@@ -28,7 +28,7 @@ export default function PasswordResetScreen() {
       setComplete(true);
       // Drop the secret query parameter from navigation history.
       router.replace('/auth/login');
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ссылка истекла или уже использована');
     } finally { setBusy(false); }
   };
