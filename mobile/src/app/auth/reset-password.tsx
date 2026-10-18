@@ -9,7 +9,7 @@ import { api } from '../../api/client';
 const Title = styled.Text({ color: colors.ink, ...typography.display, marginBottom: spacing.sm });
 const Hint = styled.Text({ color: colors.inkSecondary, ...typography.body, marginBottom: spacing.lg });
 const Field = styled(TextInput)({ backgroundColor: colors.paper, borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, color: colors.ink, padding: spacing.md, marginBottom: spacing.md });
-const Error = styled.Text({ color: colors.burgundy, ...typography.label, marginBottom: spacing.md });
+const ErrorText = styled.Text({ color: colors.burgundy, ...typography.label, marginBottom: spacing.md });
 
 export default function PasswordResetScreen() {
   const router = useRouter();
@@ -35,13 +35,13 @@ export default function PasswordResetScreen() {
   return <ScreenContainer><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}><ScreenContent>
     <Title>Новый пароль</Title>
     <Hint>{complete ? 'Пароль изменён. Войдите снова на всех устройствах.' : 'Задайте новый пароль. Все ранее открытые сеансы будут завершены.'}</Hint>
-    {!token ? <Error>Ссылка недействительна. Запросите новую ссылку на странице входа.</Error> : null}
+    {!token ? <ErrorText>Ссылка недействительна. Запросите новую ссылку на странице входа.</ErrorText> : null}
     {!complete && !!token ? <>
       <Field accessibilityLabel="Новый пароль" secureTextEntry autoCapitalize="none" placeholder="Новый пароль (8–128 символов)" placeholderTextColor={colors.inkMuted} value={password} onChangeText={setPassword} />
       <Field accessibilityLabel="Подтвердите пароль" secureTextEntry autoCapitalize="none" placeholder="Подтвердите пароль" placeholderTextColor={colors.inkMuted} value={confirm} onChangeText={setConfirm} />
       <PillButton label={busy ? 'Сохраняем…' : 'Изменить пароль'} disabled={busy || password.length < 8 || password.length > 128 || password !== confirm} onPress={() => void submit()} />
     </> : null}
-    {error ? <Error>{error}</Error> : null}
+    {error ? <ErrorText>{error}</ErrorText> : null}
     <PillButton label="Вернуться ко входу" variant="secondary" onPress={() => router.replace('/auth/login')} />
   </ScreenContent></KeyboardAvoidingView></ScreenContainer>;
 }
