@@ -17,3 +17,21 @@ export class RefreshDto {
   @MinLength(20)
   refreshToken!: string;
 }
+
+export class PasswordResetRequestDto {
+  @IsEmail()
+  @MaxLength(254)
+  email!: string;
+}
+
+export class PasswordResetConfirmDto {
+  @IsString()
+  @MinLength(40)
+  @MaxLength(128)
+  token!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  newPassword!: string;
+}
