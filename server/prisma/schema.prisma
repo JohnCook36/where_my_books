@@ -69,6 +69,7 @@ model User {
   journalEntries JournalEntry[]
   readingSessions ReadingSession[]
   progressEvents ReadingProgressEvent[]
+  readingGoal ReadingGoal?
 }
 
 model Session {
