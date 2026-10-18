@@ -39,6 +39,20 @@ export interface SearchBooksResponse {
   hasMore: boolean;
 }
 
+export type JournalEntryKind = 'note' | 'quote';
+export interface JournalEntryResponse {
+  id: string;
+  copyId: string;
+  kind: JournalEntryKind;
+  body: string;
+  page?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface ListJournalEntriesResponse { entries: JournalEntryResponse[] }
+export interface CreateJournalEntryRequest { kind: JournalEntryKind; body: string; page?: number | null }
+export interface UpdateJournalEntryRequest { body?: string; page?: number | null }
+
 export interface UpdateReadingStatusRequest { status: ReadingStatus }
 export interface UpdateReadingProgressRequest { currentPage: number }
 export interface UpdateUserSettingsRequest { progressDisplayMode: ProgressDisplayMode }

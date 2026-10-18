@@ -119,6 +119,10 @@ export const api = {
   updateProgress: (id: string, currentPage: number) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}/progress`, { method: 'PATCH', body: JSON.stringify({ currentPage }) }),
   updateBook: (id: string, body: UpdateBookRequest) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteBook: (id: string) => request<void>(`/books/${id}`, { method: 'DELETE' }),
+  journalEntries: (copyId: string) => request<import('@where-my-books/shared').ListJournalEntriesResponse>(`/books/${encodeURIComponent(copyId)}/journal`),
+  addJournalEntry: (copyId: string, body: import('@where-my-books/shared').CreateJournalEntryRequest) => request<import('@where-my-books/shared').JournalEntryResponse>(`/books/${encodeURIComponent(copyId)}/journal`, { method: 'POST', body: JSON.stringify(body) }),
+  updateJournalEntry: (copyId: string, entryId: string, body: import('@where-my-books/shared').UpdateJournalEntryRequest) => request<import('@where-my-books/shared').JournalEntryResponse>(`/books/${encodeURIComponent(copyId)}/journal/${encodeURIComponent(entryId)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteJournalEntry: (copyId: string, entryId: string) => request<void>(`/books/${encodeURIComponent(copyId)}/journal/${encodeURIComponent(entryId)}`, { method: 'DELETE' }),
   settings: () => request<import('@where-my-books/shared').UserSettingsResponse>('/settings'),
   updateSettings: (progressDisplayMode: import('@where-my-books/shared').ProgressDisplayMode) => request<import('@where-my-books/shared').UserSettingsResponse>('/settings', { method: 'PATCH', body: JSON.stringify({ progressDisplayMode }) }),
 };

@@ -59,6 +59,25 @@ try {
   const unknown = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { title: 'Unknown edition', author: 'Manually entered', totalPages: 0, clientRequestId: randomUUID() } });
   assert.equal(unknown.progress.totalPages, 0);
 
+  // Real PostgreSQL journal: private note/quote CRUD, page bounds and account isolation.
+  await call(`/books/${one.id}/journal`, { status: 401 });
+  const note = await call(`/books/${one.id}/journal`, { token: a.accessToken, method: 'POST', status: 201, body: { kind: 'note', body: '  My first impression  ', page: 17 } });
+  assert.equal(note.body, 'My first impression'); assert.equal(note.page, 17);
+  const quote = await call(`/books/${one.id}/journal`, { token: a.accessToken, method: 'POST', status: 201, body: { kind: 'quote', body: 'A highlighted passage', page: 35 } });
+  assert.equal((await call(`/books/${one.id}/journal`, { token: a.accessToken })).entries.length, 2);
+  await call(`/books/${one.id}/journal`, { token: b.accessToken, status: 404 });
+  await call(`/books/${one.id}/journal`, { token: b.accessToken, method: 'POST', status: 404, body: { kind: 'note', body: 'Foreign' } });
+  await call(`/books/${one.id}/journal/${note.id}`, { token: b.accessToken, method: 'PATCH', status: 404, body: { body: 'Foreign update' } });
+  await call(`/books/${one.id}/journal/${note.id}`, { token: b.accessToken, method: 'DELETE', status: 404 });
+  await call(`/books/${one.id}/journal`, { token: a.accessToken, method: 'POST', status: 400, body: { kind: 'note', body: ' ' } });
+  await call(`/books/${one.id}/journal`, { token: a.accessToken, method: 'POST', status: 400, body: { kind: 'quote', body: 'Out of range', page: 131 } });
+  await call(`/books/${one.id}/journal/${note.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { page: 131 } });
+  const revisedNote = await call(`/books/${one.id}/journal/${note.id}`, { token: a.accessToken, method: 'PATCH', body: { body: 'Revised impression', page: null } });
+  assert.equal(revisedNote.body, 'Revised impression'); assert.equal(revisedNote.page, undefined);
+  await call(`/books/${one.id}/journal/${quote.id}`, { token: a.accessToken, method: 'DELETE' });
+  assert.equal((await call(`/books/${one.id}/journal`, { token: a.accessToken })).entries.length, 1);
+
+
   // PostgreSQL search: owner isolation, pagination, sorting and runtime validation.
   await call('/books/search', { status: 401 });
   const byTitle = await call('/books/search?query=PERSONAL', { token: a.accessToken });
@@ -85,6 +104,7 @@ try {
   await call('/catalog?isbn=4006381333931', { token: a.accessToken, status: 400 });
   await stop(); await start();
   assert.equal((await call(`/books/${one.id}`, { token: a.accessToken })).progress.currentPage, 20);
+  assert.equal((await call(`/books/${one.id}/journal`, { token: a.accessToken })).entries[0].body, 'Revised impression');
   assert.equal((await call(`/books/${one.id}`, { token: a.accessToken })).coverUri, payload.coverUri);
   assert.equal((await call('/scan-drafts', { token: a.accessToken })).drafts[0].id, draft.id);
   const confirmed = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { ...payload, clientRequestId: draft.id } });
