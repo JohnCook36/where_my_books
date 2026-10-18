@@ -38,6 +38,11 @@ enum ProgressDisplayMode {
   percentage
 }
 
+enum JournalEntryKind {
+  note
+  quote
+}
+
 model User {
   id           String        @id @default(uuid()) @db.Uuid
   email        String        @unique
@@ -56,6 +61,7 @@ model User {
   shelfPlacements ShelfPlacement[]
   shelfLayout ShelfLayout?
   shelfOperations ShelfOperation[]
+  journalEntries JournalEntry[]
 }
 
 model Session {
@@ -143,6 +149,7 @@ model BookCopy {
   @@index([editionId])
   @@index([coverAssetId])
   placement ShelfPlacement?
+  journalEntries JournalEntry[]
 
   @@unique([id, userId])
   @@unique([userId, clientRequestId])
@@ -275,4 +282,20 @@ model ShelfPlacement {
   @@unique([copyId, userId])
   @@unique([rowId, position])
   @@index([userId])
+}
+
+model JournalEntry {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @db.Uuid
+  copyId    String @db.Uuid
+  kind      JournalEntryKind
+  body      String @db.VarChar(5000)
+  page      Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  copy BookCopy @relation(fields: [copyId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@index([userId, copyId, createdAt])
 }
