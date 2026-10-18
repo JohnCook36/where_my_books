@@ -2,7 +2,7 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service.js';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import * as argon2 from 'argon2';
 import type { AuthResponse, AuthUser, RefreshResponse } from '@where-my-books/shared';
 import type { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto.js';
@@ -32,7 +32,8 @@ export class AuthService {
   async refresh(dto: RefreshDto): Promise<RefreshResponse> {
     const session = await this.prisma.session.findUnique({ where: { refreshTokenHash: hashToken(dto.refreshToken), }, include: { user: true } });
     if (!session || session.revokedAt || session.expiresAt <= new Date()) throw new UnauthorizedException('Invalid or expired refresh token');
-    const result = await this.createTokens(session.user.id, session.user.email, session.user.createdAt);
+    const newSessionId = randomUUID();
+    const result = await this.createTokens(session.user.id, session.user.email, newSessionId);
     // A conditional write inside one transaction makes token rotation single-use,
     // even when two requests arrive concurrently or the same token is replayed.
     await this.prisma.$transaction(async (tx) => {
@@ -43,6 +44,7 @@ export class AuthService {
       if (revoked.count !== 1) throw new UnauthorizedException('Invalid or expired refresh token');
       await tx.session.create({
         data: {
+          id: newSessionId,
           userId: session.user.id,
           refreshTokenHash: hashToken(result.refreshToken),
           expiresAt: this.refreshExpiry(),
@@ -56,6 +58,13 @@ export class AuthService {
     await this.prisma.session.updateMany({ where: { refreshTokenHash: hashToken(refreshToken), revokedAt: null }, data: { revokedAt: new Date() } });
   }
 
+  async revokeAllSessions(userId: string): Promise<void> {
+    await this.prisma.session.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
   async getUser(id: string): Promise<AuthUser> {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new UnauthorizedException('User not found');
@@ -63,13 +72,13 @@ export class AuthService {
   }
 
   private async issueSession(id: string, email: string, createdAt: Date): Promise<AuthResponse> {
-    const tokens = await this.createTokens(id, email, createdAt);
-    await this.prisma.session.create({ data: { userId: id, refreshTokenHash: hashToken(tokens.refreshToken), expiresAt: this.refreshExpiry() } });
+    const sessionId = randomUUID();
+    const tokens = await this.createTokens(id, email, sessionId);
+    await this.prisma.session.create({ data: { id: sessionId, userId: id, refreshTokenHash: hashToken(tokens.refreshToken), expiresAt: this.refreshExpiry() } });
     return { user: { id, email, createdAt: createdAt.toISOString() }, ...tokens };
   }
 
-  private async createTokens(id: string, email: string, _createdAt: Date): Promise<RefreshResponse> {
-    const sessionId = randomBytes(16).toString('hex');
+  private async createTokens(id: string, email: string, sessionId: string): Promise<RefreshResponse> {
     const payload: AccessTokenPayload = { sub: id, email, sessionId };
     const accessToken = await this.jwt.signAsync(payload, { secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'), expiresIn: '15m' });
     return { accessToken, refreshToken: randomBytes(48).toString('base64url') };
