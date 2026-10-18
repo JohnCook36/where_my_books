@@ -51,7 +51,7 @@ export default function LibraryScreen() {
     setLoading(true);
     setError(null);
     void Promise.all([
-      api.searchBooks({ query, status, sort, order, page, limit: 20 }),
+      api.searchBooks({ query, ...(status ? { status } : {}), sort, order, page, limit: 20 }),
       api.settings(),
     ]).then(([data, settings]) => {
       if (!active) return;
