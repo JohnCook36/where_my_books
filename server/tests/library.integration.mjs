@@ -58,6 +58,25 @@ try {
   await call('/books', { token: a.accessToken, method: 'POST', status: 400, body: { ...payload, clientRequestId: randomUUID(), isbn: '4006381333931' } });
   const unknown = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { title: 'Unknown edition', author: 'Manually entered', totalPages: 0, clientRequestId: randomUUID() } });
   assert.equal(unknown.progress.totalPages, 0);
+
+  // PostgreSQL search: owner isolation, pagination, sorting and runtime validation.
+  await call('/books/search', { status: 401 });
+  const byTitle = await call('/books/search?query=PERSONAL', { token: a.accessToken });
+  assert.equal(byTitle.total, 1); assert.equal(byTitle.books[0].id, one.id);
+  const firstPage = await call('/books/search?query=author%20a&sort=title&order=asc&limit=1&page=1', { token: a.accessToken });
+  const secondPage = await call('/books/search?query=author%20a&sort=title&order=asc&limit=1&page=2', { token: a.accessToken });
+  assert.equal(firstPage.total, 2); assert.equal(firstPage.books.length, 1); assert.equal(firstPage.hasMore, true);
+  assert.equal(secondPage.total, 2); assert.equal(secondPage.hasMore, false);
+  assert.notEqual(firstPage.books[0].id, secondPage.books[0].id);
+  assert.equal((await call('/books/search?query=9780306406157', { token: a.accessToken })).total, 2);
+  assert.equal((await call('/books/search?query=test%20PUBLISHER', { token: a.accessToken })).total, 2);
+  const byStatus = await call('/books/search?status=want_to_read&sort=year&order=desc&limit=2', { token: a.accessToken });
+  assert.equal(byStatus.total, 3); assert.equal(byStatus.books.length, 2); assert.equal(byStatus.hasMore, true);
+  assert.equal((await call('/books/search?query=nonexistent', { token: a.accessToken })).total, 0);
+  assert.equal((await call('/books/search?query=author', { token: b.accessToken })).total, 0);
+  for (const query of ['page=0', 'page=abc', 'limit=51', 'limit=-1', 'status=invalid', 'sort=random', 'order=up', 'query=' + 'a'.repeat(201)]) {
+    await call('/books/search?' + query, { token: a.accessToken, status: 400 });
+  }
   const [draft, repeatedDraft] = await Promise.all([call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: payload.isbn } }), call('/scan-drafts', { token: a.accessToken, method: 'POST', status: 201, body: { isbn: one.edition.isbn } })]);
   assert.equal(draft.id, repeatedDraft.id);
   assert.equal((await call('/scan-drafts', { token: b.accessToken })).drafts.length, 0);

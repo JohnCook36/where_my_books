@@ -2,7 +2,7 @@ import { lockShelfLayout, detachDeletedCopy } from '../shelves/layout-storage.js
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { Prisma, ReadingStatus } from '@prisma/client';
-import type { CreateBookRequest, LibraryBookResponse, ListBooksResponse, UpdateBookRequest, UpdateReadingProgressRequest, UpdateReadingStatusRequest } from '@where-my-books/shared';
+import type { CreateBookRequest, LibraryBookResponse, ListBooksResponse, LibrarySearchFilters, SearchBooksResponse, UpdateBookRequest, UpdateReadingProgressRequest, UpdateReadingStatusRequest } from '@where-my-books/shared';
 import { isbn13 } from '@where-my-books/shared';
 import { validateOwnedCoverSelection } from '../covers/cover-access.js';
 import { catalogCoverUri } from '../catalog/providers.js';
@@ -18,6 +18,35 @@ export class BooksService {
   async list(userId: string): Promise<ListBooksResponse> {
     const books = await this.prisma.bookCopy.findMany({ where: { userId }, include, orderBy: { createdAt: 'asc' } });
     return { books: books.map((book) => this.toResponse(book)) };
+  }
+
+  async search(userId: string, filters: LibrarySearchFilters): Promise<SearchBooksResponse> {
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? 20;
+    const query = filters.query?.trim();
+    const direction = filters.order ?? 'desc';
+    const sort = filters.sort ?? 'added';
+    // Query is always owner-scoped in PostgreSQL, including total count.
+    const where: Prisma.BookCopyWhereInput = {
+      userId,
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(query ? { OR: [
+        { edition: { work: { title: { contains: query, mode: 'insensitive' } } } },
+        { edition: { work: { authors: { some: { author: { name: { contains: query, mode: 'insensitive' } } } } } } },
+        { edition: { isbn: { contains: query.replace(/[\s-]/g, ''), mode: 'insensitive' } } },
+        { edition: { publisher: { contains: query, mode: 'insensitive' } } },
+      ] } : {}),
+    };
+    const orderBy: Prisma.BookCopyOrderByWithRelationInput[] =
+      sort === 'title' ? [{ edition: { work: { title: direction } } }, { id: 'asc' }] :
+      sort === 'year' ? [{ edition: { publicationYear: direction } }, { id: 'asc' }] :
+      sort === 'updated' ? [{ updatedAt: direction }, { id: 'asc' }] :
+      [{ createdAt: direction }, { id: 'asc' }];
+    const [total, books] = await this.prisma.$transaction([
+      this.prisma.bookCopy.count({ where }),
+      this.prisma.bookCopy.findMany({ where, include, orderBy, take: limit, skip: (page - 1) * limit }),
+    ]);
+    return { books: books.map((book) => this.toResponse(book)), total, page, limit, hasMore: page * limit < total };
   }
 
   async get(userId: string, id: string): Promise<LibraryBookResponse> {
