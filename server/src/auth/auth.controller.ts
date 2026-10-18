@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import type { AuthResponse, CurrentUserResponse, RefreshResponse } from '@where-my-books/shared';
 import { AuthService } from './auth.service.js';
 import { CurrentUser } from './current-user.decorator.js';
@@ -17,6 +17,10 @@ export class AuthController {
   @UseGuards(AuthRateGuard)
   @Post('refresh') refresh(@Body() dto: RefreshDto): Promise<RefreshResponse> { return this.auth.refresh(dto); }
   @Post('logout') logout(@Body() dto: RefreshDto): Promise<void> { return this.auth.logout(dto.refreshToken); }
+  @UseGuards(JwtAuthGuard)
+  @Post('logout-all')
+  @HttpCode(204)
+  logoutAll(@CurrentUser() user: AccessTokenPayload): Promise<void> { return this.auth.revokeAllSessions(user.sub); }
   @UseGuards(JwtAuthGuard)
   @Get('me')
   async me(@CurrentUser() user: AccessTokenPayload): Promise<CurrentUserResponse> { return { user: await this.auth.getUser(user.sub) }; }

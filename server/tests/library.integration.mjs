@@ -38,19 +38,36 @@ try {
   await start();
   const a = await call('/auth/register', { method: 'POST', status: 201, body: { email: `a-${randomUUID()}@example.test`, password: 'Test-only-passphrase-9274' } }); users.push(a.user.id);
   const b = await call('/auth/register', { method: 'POST', status: 201, body: { email: `b-${randomUUID()}@example.test`, password: 'Test-only-passphrase-9274' } }); users.push(b.user.id);
+  // Use a dedicated account for refresh/revocation tests: library accounts retain
+  // their original active sessions throughout the long persistence suite.
+  const c = await call('/auth/register', { method: 'POST', status: 201, body: { email: `c-${randomUUID()}@example.test`, password: 'Test-only-passphrase-9274' } }); users.push(c.user.id);
+  const d = await call('/auth/register', { method: 'POST', status: 201, body: { email: `d-${randomUUID()}@example.test`, password: 'Test-only-passphrase-9274' } }); users.push(d.user.id);
+  const dSecondDevice = await call('/auth/login', { method: 'POST', status: 201, body: { email: d.user.email, password: 'Test-only-passphrase-9274' } });
+  await call('/auth/me', { token: d.accessToken });
+  await call('/auth/me', { token: dSecondDevice.accessToken });
+  await call('/auth/logout-all', { token: d.accessToken, method: 'POST', status: 204 });
+  await call('/auth/me', { token: d.accessToken, status: 401 });
+  await call('/auth/me', { token: dSecondDevice.accessToken, status: 401 });
+  await call('/auth/refresh', { method: 'POST', body: { refreshToken: dSecondDevice.refreshToken }, status: 401 });
+  await call('/auth/refresh', { method: 'POST', body: { refreshToken: d.refreshToken }, status: 401 });
+  await call('/auth/me', { token: a.accessToken });
+  await call('/auth/me', { token: b.accessToken });
   // Refresh tokens are single-use even when two requests race on PostgreSQL.
   const refreshOnce = () => fetch(base + '/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken: a.refreshToken }),
+    body: JSON.stringify({ refreshToken: c.refreshToken }),
   });
   const [rotatedA, rotatedB] = await Promise.all([refreshOnce(), refreshOnce()]);
   assert.deepEqual([rotatedA.status, rotatedB.status].sort(), [201, 401]);
   const renewed = await (rotatedA.status === 201 ? rotatedA : rotatedB).json();
   assert.equal(typeof renewed.refreshToken, 'string');
-  await call('/auth/refresh', { method: 'POST', body: { refreshToken: a.refreshToken }, status: 401 });
+  await call('/auth/me', { token: c.accessToken, status: 401 });
+  await call('/auth/me', { token: renewed.accessToken });
+  await call('/auth/refresh', { method: 'POST', body: { refreshToken: c.refreshToken }, status: 401 });
   await call('/auth/logout', { method: 'POST', body: { refreshToken: renewed.refreshToken }, status: 201 });
   await call('/auth/refresh', { method: 'POST', body: { refreshToken: renewed.refreshToken }, status: 401 });
+  await call('/auth/me', { token: renewed.accessToken, status: 401 });
 
   // Exact browser origin policy: permitted localhost and denied unrelated origins.
   const acceptedOrigin = await fetch(base + '/health', { headers: { Origin: 'http://localhost:5173' } });
@@ -60,7 +77,7 @@ try {
   const nativeOrigin = await fetch(base + '/health');
   assert.equal(nativeOrigin.status, 200);
   // Rate guard returns 429 on public auth routes, but does not affect private books.
-  for (let attempt = 0; attempt < 30; attempt++) {
+  for (let attempt = 0; attempt < 29; attempt++) {
     await call('/auth/login', { method: 'POST', status: 401, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
   }
   await call('/auth/login', { method: 'POST', status: 429, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
