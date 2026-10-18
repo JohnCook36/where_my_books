@@ -8,6 +8,9 @@ export interface AuthUser { id: string; email: string; createdAt: string }
 export interface AuthResponse { user: AuthUser; accessToken: string; refreshToken: string }
 export interface RefreshResponse { accessToken: string; refreshToken: string }
 export interface CurrentUserResponse { user: AuthUser }
+export interface SyncBootstrapResponse { cursor: string; books: LibraryBookResponse[] }
+export interface SyncChange { revision: string; copyId: string; action: 'upsert' | 'delete' }
+export interface SyncChangesResponse { cursor: string; serverCursor: string; hasMore: boolean; changes: SyncChange[] }
 export interface AccountSession {
   id: string;
   createdAt: string;
