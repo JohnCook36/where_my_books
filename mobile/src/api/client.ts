@@ -103,6 +103,16 @@ export const api = {
   shelfLayout: () => request<import('@where-my-books/shared').ShelfLayout>('/shelves/layout'),
   mutateShelf: (body: import('@where-my-books/shared').ShelfMutation) => request<import('@where-my-books/shared').ShelfMutationResponse>('/shelves/layout', { method: 'POST', body: JSON.stringify(body) }),
   books: () => request<{ books: import('@where-my-books/shared').LibraryBookResponse[] }>('/books'),
+  searchBooks: (filters: import('@where-my-books/shared').LibrarySearchFilters) => {
+    const params = new URLSearchParams();
+    if (filters.query) params.set('query', filters.query);
+    if (filters.status) params.set('status', filters.status);
+    if (filters.sort) params.set('sort', filters.sort);
+    if (filters.order) params.set('order', filters.order);
+    if (filters.page) params.set('page', String(filters.page));
+    if (filters.limit) params.set('limit', String(filters.limit));
+    return request<import('@where-my-books/shared').SearchBooksResponse>(`/books/search?${params.toString()}`);
+  },
   book: (id: string) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}`),
   addBook: (body: CreateBookRequest) => request<import('@where-my-books/shared').BookDetailsResponse>('/books', { method: 'POST', body: JSON.stringify(body) }),
   updateStatus: (id: string, status: import('@where-my-books/shared').ReadingStatus) => request<import('@where-my-books/shared').BookDetailsResponse>(`/books/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
