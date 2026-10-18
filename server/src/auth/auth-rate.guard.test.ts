@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TooManyRequestsException } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
 import { AuthRateGuard } from './auth-rate.guard.js';
 
 const ctx = (ip: string, path: string) => ({
