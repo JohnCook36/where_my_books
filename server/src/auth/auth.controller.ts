@@ -4,7 +4,7 @@ import { AuthService } from './auth.service.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import type { AccessTokenPayload } from './auth.types.js';
-import { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto.js';
+import { LoginDto, RefreshDto, RegisterDto, PasswordResetRequestDto, PasswordResetConfirmDto } from './dto/auth.dto.js';
 import { AuthRateGuard } from './auth-rate.guard.js';
 
 @Controller('auth')
@@ -16,6 +16,14 @@ export class AuthController {
   @Post('login') login(@Body() dto: LoginDto): Promise<AuthResponse> { return this.auth.login(dto); }
   @UseGuards(AuthRateGuard)
   @Post('refresh') refresh(@Body() dto: RefreshDto): Promise<RefreshResponse> { return this.auth.refresh(dto); }
+  @UseGuards(AuthRateGuard)
+  @Post('password-reset/request')
+  @HttpCode(204)
+  passwordResetRequest(@Body() dto: PasswordResetRequestDto): Promise<void> { return this.auth.requestPasswordReset(dto.email); }
+  @UseGuards(AuthRateGuard)
+  @Post('password-reset/confirm')
+  @HttpCode(204)
+  passwordResetConfirm(@Body() dto: PasswordResetConfirmDto): Promise<void> { return this.auth.resetPassword(dto.token, dto.newPassword); }
   @Post('logout') logout(@Body() dto: RefreshDto): Promise<void> { return this.auth.logout(dto.refreshToken); }
   @UseGuards(JwtAuthGuard)
   @Get('sessions')
