@@ -9,12 +9,12 @@ const config = { getOrThrow: vi.fn().mockReturnValue('test-secret') };
 describe('AuthService', () => {
   it('rejects duplicate registration', async () => {
     const prisma = { user: { findUnique: vi.fn().mockResolvedValue(user) } };
-    await expect(new AuthService(prisma as never, jwt as never, config as never).register({ email: user.email, password: 'password123' })).rejects.toBeInstanceOf(ConflictException);
+    await expect(new AuthService(prisma as never, jwt as never, config as never, { isConfigured: () => false } as never).register({ email: user.email, password: 'password123' })).rejects.toBeInstanceOf(ConflictException);
   });
 
   it('rejects invalid login', async () => {
     const prisma = { user: { findUnique: vi.fn().mockResolvedValue(null) } };
-    await expect(new AuthService(prisma as never, jwt as never, config as never).login({ email: user.email, password: 'password123' })).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(new AuthService(prisma as never, jwt as never, config as never, { isConfigured: () => false } as never).login({ email: user.email, password: 'password123' })).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
   it('rotates the refresh token only after a conditional single-use claim', async () => {
@@ -26,7 +26,7 @@ describe('AuthService', () => {
       session: { findUnique: vi.fn().mockResolvedValue(session) },
       $transaction: vi.fn().mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
     };
-    const service = new AuthService(prisma as never, jwt as never, config as never);
+    const service = new AuthService(prisma as never, jwt as never, config as never, { isConfigured: () => false } as never);
     const result = await service.refresh({ refreshToken: 'old-refresh-token-1234567890' });
     expect(result.accessToken).toBe('access-token');
     expect(tx.session.updateMany).toHaveBeenCalledWith(expect.objectContaining({
@@ -49,14 +49,14 @@ describe('AuthService', () => {
       session: { findUnique: vi.fn().mockResolvedValue(session) },
       $transaction: vi.fn().mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
     };
-    const service = new AuthService(prisma as never, jwt as never, config as never);
+    const service = new AuthService(prisma as never, jwt as never, config as never, { isConfigured: () => false } as never);
     await expect(service.refresh({ refreshToken: 'old-refresh-token-1234567890' })).rejects.toBeInstanceOf(UnauthorizedException);
     expect(tx.session.create).not.toHaveBeenCalled();
   });
 
   it('revokes all the user sessions without touching another owner', async () => {
     const prisma = { session: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) } };
-    await new AuthService(prisma as never, jwt as never, config as never).revokeAllSessions('owner');
+    await new AuthService(prisma as never, jwt as never, config as never, { isConfigured: () => false } as never).revokeAllSessions('owner');
     expect(prisma.session.updateMany).toHaveBeenCalledWith({
       where: { userId: 'owner', revokedAt: null }, data: { revokedAt: expect.any(Date) },
     });
@@ -64,7 +64,7 @@ describe('AuthService', () => {
 
   it('revokes a refresh session on logout', async () => {
     const prisma = { session: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) } };
-    await new AuthService(prisma as never, jwt as never, config as never).logout('refresh-token-1234567890');
+    await new AuthService(prisma as never, jwt as never, config as never, { isConfigured: () => false } as never).logout('refresh-token-1234567890');
     expect(prisma.session.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { revokedAt: expect.any(Date) } }));
   });
 });
