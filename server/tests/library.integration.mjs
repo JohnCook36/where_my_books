@@ -123,7 +123,8 @@ try {
   assert.equal((await call('/books/search?query=9780306406157', { token: a.accessToken })).total, 2);
   assert.equal((await call('/books/search?query=test%20PUBLISHER', { token: a.accessToken })).total, 2);
   const byStatus = await call('/books/search?status=want_to_read&sort=year&order=desc&limit=2', { token: a.accessToken });
-  assert.equal(byStatus.total, 3); assert.equal(byStatus.books.length, 2); assert.equal(byStatus.hasMore, true);
+  assert.equal(byStatus.total, 2); assert.equal(byStatus.books.length, 2); assert.equal(byStatus.hasMore, false);
+  assert.equal((await call('/books/search?status=reading', { token: a.accessToken })).total, 1);
   assert.equal((await call('/books/search?query=nonexistent', { token: a.accessToken })).total, 0);
   assert.equal((await call('/books/search?query=author', { token: b.accessToken })).total, 0);
   for (const query of ['page=0', 'page=abc', 'limit=51', 'limit=-1', 'status=invalid', 'sort=random', 'order=up', 'query=' + 'a'.repeat(201)]) {
