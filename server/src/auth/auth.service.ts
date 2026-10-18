@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Injectable, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service.js';
@@ -7,13 +7,14 @@ import * as argon2 from 'argon2';
 import type { AccountSessionsResponse, AuthResponse, AuthUser, RefreshResponse } from '@where-my-books/shared';
 import type { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto.js';
 import type { AccessTokenPayload } from './auth.types.js';
+import { PasswordResetDelivery } from './password-reset-delivery.js';
 
 const REFRESH_DAYS = 30;
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService, private readonly jwt: JwtService, private readonly config: ConfigService) {}
+  constructor(private readonly prisma: PrismaService, private readonly jwt: JwtService, private readonly config: ConfigService, private readonly delivery: PasswordResetDelivery) {}
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
     const email = dto.email.trim().toLowerCase();
@@ -52,6 +53,48 @@ export class AuthService {
       });
     });
     return result;
+  }
+
+  async requestPasswordReset(email: string): Promise<void> {
+    // Entire endpoint is unavailable until the operator configures delivery.
+    if (!this.delivery.isConfigured()) throw new ServiceUnavailableException('Восстановление пароля пока недоступно');
+    const user = await this.prisma.user.findUnique({ where: { email: email.trim().toLowerCase() }, select: { id: true, email: true } });
+    // Do not reveal whether the address exists.
+    if (!user) return;
+    const cutoff = new Date(Date.now() - 60_000);
+    const pending = await this.prisma.passwordReset.findFirst({
+      where: { userId: user.id, consumedAt: null, expiresAt: { gt: new Date() }, createdAt: { gt: cutoff } },
+      select: { id: true },
+    });
+    if (pending) return;
+    const raw = randomBytes(32).toString('base64url');
+    const tokenHash = hashToken(raw);
+    const issued = await this.prisma.passwordReset.create({
+      data: { userId: user.id, tokenHash, expiresAt: new Date(Date.now() + 15 * 60_000) },
+    });
+    try {
+      await this.delivery.send(user.email, raw);
+    } catch {
+      await this.prisma.passwordReset.deleteMany({ where: { id: issued.id, consumedAt: null } });
+      // Intentionally identical to nonexistent-email response, to avoid enumeration.
+    }
+  }
+
+  async resetPassword(rawToken: string, newPassword: string): Promise<void> {
+    const tokenHash = hashToken(rawToken);
+    const newHash = await argon2.hash(newPassword);
+    await this.prisma.$transaction(async (tx) => {
+      const reset = await tx.passwordReset.findUnique({ where: { tokenHash }, select: { id: true, userId: true, consumedAt: true, expiresAt: true } });
+      if (!reset || reset.consumedAt || reset.expiresAt <= new Date()) throw new UnauthorizedException('Ссылка истекла или уже использована');
+      const claim = await tx.passwordReset.updateMany({
+        where: { id: reset.id, consumedAt: null, expiresAt: { gt: new Date() } },
+        data: { consumedAt: new Date() },
+      });
+      if (claim.count !== 1) throw new UnauthorizedException('Ссылка истекла или уже использована');
+      await tx.user.update({ where: { id: reset.userId }, data: { passwordHash: newHash } });
+      await tx.passwordReset.updateMany({ where: { userId: reset.userId, consumedAt: null }, data: { consumedAt: new Date() } });
+      await tx.session.updateMany({ where: { userId: reset.userId, revokedAt: null }, data: { revokedAt: new Date() } });
+    });
   }
 
   async logout(refreshToken: string): Promise<void> {

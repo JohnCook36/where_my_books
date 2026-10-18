@@ -90,6 +90,11 @@ try {
   assert.equal(deniedOrigin.headers.get('access-control-allow-origin'), null);
   const nativeOrigin = await fetch(base + '/health');
   assert.equal(nativeOrigin.status, 200);
+  // No email provider configured in CI: recovery never claims to have sent a link.
+  await call('/auth/password-reset/request', { method: 'POST', status: 503, body: { email: a.user.email } });
+  await call('/auth/password-reset/request', { method: 'POST', status: 400, body: { email: 'invalid' } });
+  await call('/auth/password-reset/confirm', { method: 'POST', status: 401, body: { token: 'unrecognized-reset-token-123456789012345678901234', newPassword: 'new-passphrase-123' } });
+
   // Rate guard returns 429 on public auth routes, but does not affect private books.
   for (let attempt = 0; attempt < 29; attempt++) {
     await call('/auth/login', { method: 'POST', status: 401, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
