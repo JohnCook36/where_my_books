@@ -8,12 +8,11 @@ import {
   PillButton,
   ReadingProgressBar,
   SurfaceCard,
-  colors,
-  spacing,
-} from '@where-my-books/ui/native';
+} from '@/components';
+import { colors, spacing } from '@/theme';
 import * as Haptics from 'expo-haptics';
 
-import type { LibraryBookPreview } from '../../library/mockBooks';
+import type { LibraryBookPreview } from '../../library/types';
 
 interface CurrentReadingCardProps {
   book: LibraryBookPreview;
@@ -77,7 +76,8 @@ export const CurrentReadingCard = ({
         />
       </ProgressWrap>
 
-      <PillButton label="+ 10 страниц" onPress={addPages} />
+      <PillButton label="+ 10 страниц" disabled={book.totalPages <= 0} onPress={addPages} />
+      {book.totalPages <= 0 ? <Author>Укажите количество страниц в карточке, чтобы обновлять прогресс.</Author> : null}
     </SurfaceCard>
   );
 };
