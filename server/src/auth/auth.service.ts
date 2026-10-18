@@ -4,7 +4,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service.js';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import * as argon2 from 'argon2';
-import type { AuthResponse, AuthUser, RefreshResponse } from '@where-my-books/shared';
+import type { AccountSessionsResponse, AuthResponse, AuthUser, RefreshResponse } from '@where-my-books/shared';
 import type { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto.js';
 import type { AccessTokenPayload } from './auth.types.js';
 
@@ -56,6 +56,28 @@ export class AuthService {
 
   async logout(refreshToken: string): Promise<void> {
     await this.prisma.session.updateMany({ where: { refreshTokenHash: hashToken(refreshToken), revokedAt: null }, data: { revokedAt: new Date() } });
+  }
+
+  async listSessions(userId: string, currentSessionId: string): Promise<AccountSessionsResponse> {
+    const sessions = await this.prisma.session.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      select: { id: true, createdAt: true, expiresAt: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+      take: 100,
+    });
+    return { sessions: sessions.map((item) => ({
+      id: item.id, createdAt: item.createdAt.toISOString(),
+      expiresAt: item.expiresAt.toISOString(),
+      isCurrent: item.id === currentSessionId,
+    })) };
+  }
+
+  async revokeSession(userId: string, sessionId: string, currentSessionId: string): Promise<void> {
+    if (sessionId === currentSessionId) throw new ConflictException('Используйте «Выйти» для завершения текущего сеанса');
+    await this.prisma.session.updateMany({
+      where: { id: sessionId, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   async revokeAllSessions(userId: string): Promise<void> {
