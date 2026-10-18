@@ -4,14 +4,16 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useReducedMotion } from 'react-native-reanimated';
+import { MotionPreferenceProvider, useMotionPreference } from '../hooks/useMotionPreference';
 import { LoadingState } from '@/components';
 import { AuthProvider, useAuth } from '../features/auth/AuthProvider';
 
 const theme = { colors, motion, radii, spacing };
 
-export default function RootLayout() {
-  const reduceMotion = useReducedMotion() ?? false;
+export default function RootLayout() { return <MotionPreferenceProvider><ThemedRoot /></MotionPreferenceProvider>; }
+
+function ThemedRoot() {
+  const reduceMotion = useMotionPreference();
   const appTheme = { ...theme, motion: { ...motion, reduceMotion } };
   return <GestureHandlerRootView style={{ flex: 1 }}><ThemeProvider theme={appTheme}><AuthProvider><RootNavigator reduceMotion={reduceMotion} /></AuthProvider></ThemeProvider></GestureHandlerRootView>;
 }

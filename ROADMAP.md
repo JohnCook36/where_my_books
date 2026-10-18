@@ -281,3 +281,15 @@ Catalog/ISBN переносится перед расширенной вирту
 - [ ] Полная native UX-приёмка после сборки приложения — по решению владельца.
 
 [Контракт и проверки](docs/CATALOG-SEARCH-STYLES.md). Следующий функциональный блок D: серверные комнаты/шкафы/секции/полки/позиции, реальные корешки и общее место партии. Не считать C или весь продукт принятыми только по написанному коду/CI.
+
+### D — реальные места и motion, первый срез (2026-10-17)
+
+- [x] Реализация StorageRoom/Shelf/ShelfSection/ShelfRow/ShelfPlacement, composite owner FK и additive migration.
+- [x] Account layout revision, strict actions, request receipts, replay/CAS и Undo move/sort.
+- [x] Безопасное удаление контейнера и revision-aware удаление copy.
+- [x] Реальный экран шкафа: создание/переименование/удаление, места, path search, группа до50 и связь с scan batch.
+- [x] UI-thread lift/drag/gap/reorder/arrival/progress, общие tokens, live Reduce Motion, доступный перенос и единый native modal host.
+- [ ] Подтверждение PG/HTTP на текущем SHA и последующая native/owner motion приёмка.
+- [ ] Межстрочный drag/edge autoscroll, реальные размеры и fit, все режимы просмотра/расширенные настройки шкафа.
+
+[Модель, motion и проверки](docs/REAL-SHELF-MOTION.md). Пользователь17.10 отдельно подтвердил важность красивого motion. Android manual по прежнему решению после сборки функциональности, не блокирует разработку. Не выдавать JS bundle за проверенную плавность на устройстве.

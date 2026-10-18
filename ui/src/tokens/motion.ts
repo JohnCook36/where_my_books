@@ -1,4 +1,5 @@
 export const motion = {
+  shelf: { lift: 10, dragLift: 22, selectedScale: 1.025, dragScale: 1.045, pressScale: 0.98, longPressMs: 280, sheetOffset: 18 },
   duration: {
     fast: 160,
     normal: 320,
