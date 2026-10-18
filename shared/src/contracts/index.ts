@@ -8,6 +8,13 @@ export interface AuthUser { id: string; email: string; createdAt: string }
 export interface AuthResponse { user: AuthUser; accessToken: string; refreshToken: string }
 export interface RefreshResponse { accessToken: string; refreshToken: string }
 export interface CurrentUserResponse { user: AuthUser }
+export interface AccountSession {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  isCurrent: boolean;
+}
+export interface AccountSessionsResponse { sessions: AccountSession[] }
 
 export interface BookMetadataInput extends CoverSelection {
   isbn?: string; publisher?: string; publicationYear?: number; language?: string;

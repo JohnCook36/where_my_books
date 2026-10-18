@@ -1,5 +1,5 @@
-import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
-import type { AuthResponse, CurrentUserResponse, RefreshResponse } from '@where-my-books/shared';
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import type { AccountSessionsResponse, AuthResponse, CurrentUserResponse, RefreshResponse } from '@where-my-books/shared';
 import { AuthService } from './auth.service.js';
 import { CurrentUser } from './current-user.decorator.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
@@ -17,6 +17,17 @@ export class AuthController {
   @UseGuards(AuthRateGuard)
   @Post('refresh') refresh(@Body() dto: RefreshDto): Promise<RefreshResponse> { return this.auth.refresh(dto); }
   @Post('logout') logout(@Body() dto: RefreshDto): Promise<void> { return this.auth.logout(dto.refreshToken); }
+  @UseGuards(JwtAuthGuard)
+  @Get('sessions')
+  sessions(@CurrentUser() user: AccessTokenPayload): Promise<AccountSessionsResponse> {
+    return this.auth.listSessions(user.sub, user.sessionId);
+  }
+  @UseGuards(JwtAuthGuard)
+  @Delete('sessions/:sessionId')
+  @HttpCode(204)
+  revokeSession(@CurrentUser() user: AccessTokenPayload, @Param('sessionId', new ParseUUIDPipe()) sessionId: string): Promise<void> {
+    return this.auth.revokeSession(user.sub, sessionId, user.sessionId);
+  }
   @UseGuards(JwtAuthGuard)
   @Post('logout-all')
   @HttpCode(204)
