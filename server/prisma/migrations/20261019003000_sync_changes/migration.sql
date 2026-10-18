@@ -17,6 +17,11 @@ BEGIN
   ELSE
     owner_id := NEW."userId"; book_id := NEW."id";
   END IF;
+  -- During account deletion, PostgreSQL cascades into BookCopy after the owner
+  -- row is removed. Do not resurrect a cursor for a deleted account.
+  IF TG_OP = 'DELETE' AND NOT EXISTS (SELECT 1 FROM "User" WHERE "id" = owner_id) THEN
+    RETURN OLD;
+  END IF;
   INSERT INTO "SyncCursor" ("userId", "revision") VALUES (owner_id, 1)
     ON CONFLICT ("userId") DO UPDATE SET "revision" = "SyncCursor"."revision" + 1
     RETURNING "revision" INTO next_revision;
