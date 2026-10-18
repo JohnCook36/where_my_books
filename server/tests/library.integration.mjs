@@ -51,6 +51,39 @@ try {
   assert.equal((await call(`/books/${second.id}`, { token: a.accessToken })).work.title, payload.title);
   await call(`/books/${one.id}/progress`, { token: a.accessToken, method: 'PATCH', body: { currentPage: 20 } });
   await call(`/books/${one.id}/progress`, { token: a.accessToken, method: 'PATCH', status: 400, body: { currentPage: 999 } });
+  // Real PostgreSQL reading timer and durable progress audit.
+  await call('/books/' + one.id + '/reading', { status: 401 });
+  assert.equal((await call('/books/' + one.id + '/reading', { token: a.accessToken })).events[0].source, 'manual');
+  const [started, startedRetry] = await Promise.all([
+    call('/books/' + one.id + '/reading/sessions/start', { token: a.accessToken, method: 'POST', status: 201 }),
+    call('/books/' + one.id + '/reading/sessions/start', { token: a.accessToken, method: 'POST', status: 201 }),
+  ]);
+  assert.equal(started.id, startedRetry.id);
+  assert.equal(started.startPage, 20);
+  await call('/books/' + second.id + '/reading/sessions/start', { token: a.accessToken, method: 'POST', status: 409 });
+  await call('/books/' + one.id + '/reading', { token: b.accessToken, status: 404 });
+  await call('/books/' + one.id + '/reading/sessions/start', { token: b.accessToken, method: 'POST', status: 404 });
+  await call('/books/' + one.id + '/reading/sessions/' + started.id + '/finish', { token: a.accessToken, method: 'POST', status: 400, body: { endPage: 131 } });
+  await call('/books/' + one.id + '/progress', { token: a.accessToken, method: 'PATCH', body: { currentPage: 21 } });
+  await call('/books/' + one.id + '/reading/sessions/' + started.id + '/finish', { token: a.accessToken, method: 'POST', status: 409, body: { endPage: 23 } });
+  await call('/books/' + one.id + '/progress', { token: a.accessToken, method: 'PATCH', body: { currentPage: 20 } });
+  const finished = await call('/books/' + one.id + '/reading/sessions/' + started.id + '/finish', { token: a.accessToken, method: 'POST', status: 201, body: { endPage: 23 } });
+  const replayFinish = await call('/books/' + one.id + '/reading/sessions/' + started.id + '/finish', { token: a.accessToken, method: 'POST', status: 201, body: { endPage: 23 } });
+  assert.deepEqual(finished, replayFinish);
+  assert.equal(finished.currentPage, 23);
+  await call('/books/' + one.id + '/reading/sessions/' + started.id + '/finish', { token: a.accessToken, method: 'POST', status: 409, body: { endPage: 24 } });
+  await call('/books/' + one.id + '/reading/sessions/' + started.id, { token: a.accessToken, method: 'DELETE', status: 404 });
+  const savedHistory = await call('/books/' + one.id + '/reading', { token: a.accessToken });
+  assert.equal(savedHistory.active, undefined);
+  assert.equal(savedHistory.sessions.length, 1);
+  assert.equal(savedHistory.sessions[0].endPage, 23);
+  assert.equal(savedHistory.events[0].source, 'session');
+  assert.equal(savedHistory.events[0].fromPage, 20);
+  assert.equal(savedHistory.events[0].toPage, 23);
+  await call('/books/' + one.id + '/progress', { token: a.accessToken, method: 'PATCH', body: { currentPage: 20 } });
+  const runningUntilRestart = await call('/books/' + one.id + '/reading/sessions/start', { token: a.accessToken, method: 'POST', status: 201 });
+  assert.equal(runningUntilRestart.startPage, 20);
+
   assert.equal((await call('/books', { token: b.accessToken })).books.length, 0);
   for (const [method, body] of [['GET', undefined], ['PATCH', { title: 'Not yours' }], ['DELETE', undefined]]) await call(`/books/${one.id}`, { token: b.accessToken, method, body, status: 403 });
   await call('/books', { token: b.accessToken, method: 'POST', status: 404, body: { ...payload, editionId: one.editionId } });
@@ -104,6 +137,13 @@ try {
   await call('/catalog?isbn=4006381333931', { token: a.accessToken, status: 400 });
   await stop(); await start();
   assert.equal((await call(`/books/${one.id}`, { token: a.accessToken })).progress.currentPage, 20);
+  const restoredHistory = await call('/books/' + one.id + '/reading', { token: a.accessToken });
+  assert.equal(restoredHistory.active.id, runningUntilRestart.id);
+  assert.equal(restoredHistory.sessions.length, 1);
+  await call('/books/' + one.id + '/reading/sessions/' + runningUntilRestart.id, { token: b.accessToken, method: 'DELETE', status: 404 });
+  await call('/books/' + one.id + '/reading/sessions/' + runningUntilRestart.id, { token: a.accessToken, method: 'DELETE', status: 204 });
+  assert.equal((await call('/books/' + one.id + '/reading', { token: a.accessToken })).active, undefined);
+
   assert.equal((await call(`/books/${one.id}/journal`, { token: a.accessToken })).entries[0].body, 'Revised impression');
   assert.equal((await call(`/books/${one.id}`, { token: a.accessToken })).coverUri, payload.coverUri);
   assert.equal((await call('/scan-drafts', { token: a.accessToken })).drafts[0].id, draft.id);
