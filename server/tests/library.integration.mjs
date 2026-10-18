@@ -38,7 +38,28 @@ try {
   await start();
   const a = await call('/auth/register', { method: 'POST', status: 201, body: { email: `a-${randomUUID()}@example.test`, password: 'Test-only-passphrase-9274' } }); users.push(a.user.id);
   const b = await call('/auth/register', { method: 'POST', status: 201, body: { email: `b-${randomUUID()}@example.test`, password: 'Test-only-passphrase-9274' } }); users.push(b.user.id);
-  await call('/books', { status: 401 });
+  // Refresh tokens are single-use even when two requests race on PostgreSQL.
+  const refreshOnce = () => fetch(base + '/auth/refresh', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refreshToken: a.refreshToken }),
+  });
+  const [rotatedA, rotatedB] = await Promise.all([refreshOnce(), refreshOnce()]);
+  assert.deepEqual([rotatedA.status, rotatedB.status].sort(), [201, 401]);
+  const renewed = await (rotatedA.status === 201 ? rotatedA : rotatedB).json();
+  assert.equal(typeof renewed.refreshToken, 'string');
+  await call('/auth/refresh', { method: 'POST', body: { refreshToken: a.refreshToken }, status: 401 });
+  await call('/auth/logout', { method: 'POST', body: { refreshToken: renewed.refreshToken }, status: 201 });
+  await call('/auth/refresh', { method: 'POST', body: { refreshToken: renewed.refreshToken }, status: 401 });
+
+  // Exact browser origin policy: permitted localhost and denied unrelated origins.
+  const acceptedOrigin = await fetch(base + '/health', { headers: { Origin: 'http://localhost:5173' } });
+  assert.equal(acceptedOrigin.headers.get('access-control-allow-origin'), 'http://localhost:5173');
+  const deniedOrigin = await fetch(base + '/health', { headers: { Origin: 'https://attacker.invalid' } });
+  assert.equal(deniedOrigin.headers.get('access-control-allow-origin'), null);
+  const nativeOrigin = await fetch(base + '/health');
+  assert.equal(nativeOrigin.status, 200);
+    await call('/books', { status: 401 });
   const payload = { title: 'Real database book', author: 'Author A', authors: ['Author A', 'Author B'], totalPages: 120, isbn: '0-306-40615-2', publisher: 'Test publisher', publicationYear: 1980, catalogSource: 'open_library', externalId: '/books/TEST', coverUri: 'https://covers.openlibrary.org/b/id/1-L.jpg', clientRequestId: randomUUID() };
   const [one, replay] = await Promise.all([call('/books', { token: a.accessToken, method: 'POST', status: 201, body: payload }), call('/books', { token: a.accessToken, method: 'POST', status: 201, body: payload })]);
   assert.equal(one.id, replay.id);
