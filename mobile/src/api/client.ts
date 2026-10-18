@@ -107,6 +107,8 @@ export const api = {
   removeScanDraft: (id: string) => request<void>(`/scan-drafts/${id}`, { method: 'DELETE' }),
   shelfLayout: () => request<import('@where-my-books/shared').ShelfLayout>('/shelves/layout'),
   mutateShelf: (body: import('@where-my-books/shared').ShelfMutation) => request<import('@where-my-books/shared').ShelfMutationResponse>('/shelves/layout', { method: 'POST', body: JSON.stringify(body) }),
+  syncBootstrap: () => request<import('@where-my-books/shared').SyncBootstrapResponse>('/sync/bootstrap'),
+  syncChanges: (cursor: string) => request<import('@where-my-books/shared').SyncChangesResponse>('/sync/changes?after=' + encodeURIComponent(cursor)),
   books: () => request<{ books: import('@where-my-books/shared').LibraryBookResponse[] }>('/books'),
   searchBooks: (filters: import('@where-my-books/shared').LibrarySearchFilters) => {
     const params = new URLSearchParams();
