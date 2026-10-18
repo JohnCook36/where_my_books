@@ -7,7 +7,7 @@ const book = { userId: 'owner', edition: { pageCount: 100 } };
 describe('BooksService ownership and progress rules', () => {
   it('rejects progress beyond the edition page count', async () => {
     const tx = { $executeRaw: vi.fn(), bookCopy: { findFirst: vi.fn().mockResolvedValue(book) } };
-    const prisma = { $transaction: (callback: (tx: typeof tx) => Promise<unknown>) => callback(tx) };
+    const prisma = { $transaction: (callback: (client: typeof tx) => Promise<unknown>) => callback(tx) };
     const service = new BooksService(prisma as never);
     await expect(service.updateProgress('owner', 'copy', { currentPage: 101 })).rejects.toBeInstanceOf(BadRequestException);
   });
