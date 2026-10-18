@@ -5,6 +5,8 @@ import { BooksController } from './books.controller.js';
 import { BooksService } from './books.service.js';
 import { JournalController } from '../journal/journal.controller.js';
 import { JournalService } from '../journal/journal.service.js';
+import { ReadingController } from '../reading/reading.controller.js';
+import { ReadingService } from '../reading/reading.service.js';
 
-@Module({ imports: [AuthModule], controllers: [BooksController, JournalController], providers: [BooksService, JournalService, PrismaService], exports: [BooksService] })
+@Module({ imports: [AuthModule], controllers: [BooksController, JournalController, ReadingController], providers: [BooksService, JournalService, ReadingService, PrismaService], exports: [BooksService] })
 export class BooksModule {}

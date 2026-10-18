@@ -43,6 +43,11 @@ enum JournalEntryKind {
   quote
 }
 
+enum ProgressChangeSource {
+  manual
+  session
+}
+
 model User {
   id           String        @id @default(uuid()) @db.Uuid
   email        String        @unique
@@ -62,6 +67,8 @@ model User {
   shelfLayout ShelfLayout?
   shelfOperations ShelfOperation[]
   journalEntries JournalEntry[]
+  readingSessions ReadingSession[]
+  progressEvents ReadingProgressEvent[]
 }
 
 model Session {
@@ -150,6 +157,8 @@ model BookCopy {
   @@index([coverAssetId])
   placement ShelfPlacement?
   journalEntries JournalEntry[]
+  readingSessions ReadingSession[]
+  progressEvents ReadingProgressEvent[]
 
   @@unique([id, userId])
   @@unique([userId, clientRequestId])
@@ -293,6 +302,39 @@ model JournalEntry {
   page      Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  copy BookCopy @relation(fields: [copyId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@index([userId, copyId, createdAt])
+}
+
+model ReadingSession {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @db.Uuid
+  copyId          String   @db.Uuid
+  startPage       Int
+  endPage         Int?
+  durationSeconds Int?
+  startedAt       DateTime @default(now())
+  finishedAt      DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  copy BookCopy @relation(fields: [copyId, userId], references: [id, userId], onDelete: Cascade)
+
+  @@unique([id, userId])
+  @@index([userId, copyId, startedAt])
+  @@index([userId, finishedAt])
+}
+
+model ReadingProgressEvent {
+  id        String @id @default(uuid()) @db.Uuid
+  userId    String @db.Uuid
+  copyId    String @db.Uuid
+  fromPage  Int
+  toPage    Int
+  source    ProgressChangeSource
+  createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   copy BookCopy @relation(fields: [copyId, userId], references: [id, userId], onDelete: Cascade)

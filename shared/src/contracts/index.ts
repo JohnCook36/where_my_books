@@ -53,6 +53,31 @@ export interface ListJournalEntriesResponse { entries: JournalEntryResponse[] }
 export interface CreateJournalEntryRequest { kind: JournalEntryKind; body: string; page?: number | null }
 export interface UpdateJournalEntryRequest { body?: string; page?: number | null }
 
+export interface ReadingSessionResponse {
+  id: string;
+  copyId: string;
+  startPage: number;
+  startedAt: string;
+  endPage?: number;
+  finishedAt?: string;
+  durationSeconds?: number;
+}
+export interface ReadingProgressEventResponse {
+  id: string;
+  copyId: string;
+  fromPage: number;
+  toPage: number;
+  source: 'manual' | 'session';
+  createdAt: string;
+}
+export interface ReadingHistoryResponse {
+  active?: ReadingSessionResponse;
+  sessions: ReadingSessionResponse[];
+  events: ReadingProgressEventResponse[];
+}
+export interface FinishReadingSessionRequest { endPage: number }
+export interface FinishReadingSessionResponse { session: ReadingSessionResponse; currentPage: number }
+
 export interface UpdateReadingStatusRequest { status: ReadingStatus }
 export interface UpdateReadingProgressRequest { currentPage: number }
 export interface UpdateUserSettingsRequest { progressDisplayMode: ProgressDisplayMode }
