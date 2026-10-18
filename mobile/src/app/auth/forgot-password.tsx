@@ -22,7 +22,7 @@ export default function ForgotPasswordScreen() {
     try {
       await api.requestPasswordReset(email.trim());
       setSent(true);
-    } catch (err) {
+    } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Не удалось отправить запрос');
     } finally { setBusy(false); }
   };
