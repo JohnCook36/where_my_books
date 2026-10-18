@@ -40,7 +40,7 @@ export class AuthRateGuard implements CanActivate {
       bucket = { count: 0, expiresAt: now + this.windowMs };
       this.buckets.set(key, bucket);
     }
-    if (bucket.count >= this.limit) throw new TooManyRequestsException('Too many authentication attempts. Try again later.');
+    if (bucket.count >= this.limit) throw new HttpException('Too many authentication attempts. Try again later.', HttpStatus.TOO_MANY_REQUESTS);
     bucket.count += 1;
     return true;
   }
