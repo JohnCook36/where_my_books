@@ -33,10 +33,22 @@ export class AuthService {
     const session = await this.prisma.session.findUnique({ where: { refreshTokenHash: hashToken(dto.refreshToken), }, include: { user: true } });
     if (!session || session.revokedAt || session.expiresAt <= new Date()) throw new UnauthorizedException('Invalid or expired refresh token');
     const result = await this.createTokens(session.user.id, session.user.email, session.user.createdAt);
-    await this.prisma.$transaction([
-      this.prisma.session.update({ where: { id: session.id }, data: { revokedAt: new Date() } }),
-      this.prisma.session.create({ data: { userId: session.user.id, refreshTokenHash: hashToken(result.refreshToken), expiresAt: this.refreshExpiry() } }),
-    ]);
+    // A conditional write inside one transaction makes token rotation single-use,
+    // even when two requests arrive concurrently or the same token is replayed.
+    await this.prisma.$transaction(async (tx) => {
+      const revoked = await tx.session.updateMany({
+        where: { id: session.id, revokedAt: null, expiresAt: { gt: new Date() } },
+        data: { revokedAt: new Date() },
+      });
+      if (revoked.count !== 1) throw new UnauthorizedException('Invalid or expired refresh token');
+      await tx.session.create({
+        data: {
+          userId: session.user.id,
+          refreshTokenHash: hashToken(result.refreshToken),
+          expiresAt: this.refreshExpiry(),
+        },
+      });
+    });
     return result;
   }
 
