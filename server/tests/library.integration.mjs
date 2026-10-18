@@ -59,6 +59,11 @@ try {
   assert.equal(deniedOrigin.headers.get('access-control-allow-origin'), null);
   const nativeOrigin = await fetch(base + '/health');
   assert.equal(nativeOrigin.status, 200);
+  // Rate guard returns 429 on public auth routes, but does not affect private books.
+  for (let attempt = 0; attempt < 30; attempt++) {
+    await call('/auth/login', { method: 'POST', status: 401, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
+  }
+  await call('/auth/login', { method: 'POST', status: 429, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
     await call('/books', { status: 401 });
   const payload = { title: 'Real database book', author: 'Author A', authors: ['Author A', 'Author B'], totalPages: 120, isbn: '0-306-40615-2', publisher: 'Test publisher', publicationYear: 1980, catalogSource: 'open_library', externalId: '/books/TEST', coverUri: 'https://covers.openlibrary.org/b/id/1-L.jpg', clientRequestId: randomUUID() };
   const [one, replay] = await Promise.all([call('/books', { token: a.accessToken, method: 'POST', status: 201, body: payload }), call('/books', { token: a.accessToken, method: 'POST', status: 201, body: payload })]);
