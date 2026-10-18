@@ -29,13 +29,14 @@ export function ReadingSessionPanel({ bookId, currentPage, totalPages, onProgres
 }) {
   const [history, setHistory] = useState<ReadingHistoryResponse>({ sessions: [], events: [] });
   const [endPage, setEndPage] = useState('');
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [refresh, setRefresh] = useState(0);
 
   useFocusEffect(useCallback(() => {
+    void refresh;
     let active = true;
     setLoading(true);
     void api.readingHistory(bookId).then(value => {
