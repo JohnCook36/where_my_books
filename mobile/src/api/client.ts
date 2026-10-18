@@ -93,6 +93,8 @@ export const api = {
   me: () => request<{ user: { id: string; email: string; createdAt: string } }>('/auth/me'),
   logout: () => request<void>('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) }),
   logoutAll: () => request<void>('/auth/logout-all', { method: 'POST' }),
+  activeSessions: () => request<import('@where-my-books/shared').AccountSessionsResponse>('/auth/sessions'),
+  revokeSession: (id: string) => request<void>('/auth/sessions/' + encodeURIComponent(id), { method: 'DELETE' }),
   catalogSearch: (query: CatalogSearchQuery, signal?: AbortSignal) => request<CatalogSearchResponse>(`/catalog/search?${new URLSearchParams({ title: query.title, author: query.author, page: String(query.page) })}`, signal ? { signal } : {}),
   catalog: (isbn: string, signal?: AbortSignal) => request<CatalogLookupResponse>(`/catalog?isbn=${encodeURIComponent(isbn)}`, signal ? { signal } : {}),
   scanDrafts: () => request<{ drafts: ScanDraft[] }>('/scan-drafts'),
