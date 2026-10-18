@@ -10,7 +10,7 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
   const origins = corsAllowedOrigins(process.env.CORS_ALLOWED_ORIGINS, process.env.NODE_ENV === 'production');
   app.enableCors({
-    origin: (origin, callback) => callback(null, corsOriginAllowed(origin, origins)),
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => callback(null, corsOriginAllowed(origin, origins)),
     credentials: false,
     methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type'],
