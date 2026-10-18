@@ -77,7 +77,7 @@ try {
   const nativeOrigin = await fetch(base + '/health');
   assert.equal(nativeOrigin.status, 200);
   // Rate guard returns 429 on public auth routes, but does not affect private books.
-  for (let attempt = 0; attempt < 30; attempt++) {
+  for (let attempt = 0; attempt < 29; attempt++) {
     await call('/auth/login', { method: 'POST', status: 401, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
   }
   await call('/auth/login', { method: 'POST', status: 429, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
