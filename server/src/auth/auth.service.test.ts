@@ -33,7 +33,9 @@ describe('AuthService', () => {
       where: { id: 'session', revokedAt: null, expiresAt: { gt: expect.any(Date) } },
     }));
     expect(tx.session.create).toHaveBeenCalledTimes(1);
-    const createdId = tx.session.create.mock.calls[0][0].data.id;
+    const created = tx.session.create.mock.calls[0];
+    if (!created) throw new Error('Expected a replacement session creation');
+    const createdId = created[0].data.id;
     expect(createdId).toMatch(/^[0-9a-f-]{36}$/i);
     expect(jwt.signAsync).toHaveBeenCalledWith(expect.objectContaining({ sessionId: createdId }), expect.any(Object));
   });
