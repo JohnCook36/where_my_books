@@ -22,6 +22,22 @@ export interface UpdateBookRequest extends BookMetadataInput { title?: string; a
 export interface LibraryBookResponse extends LibraryBook {}
 export type BookDetailsResponse = LibraryBookResponse;
 export interface ListBooksResponse { books: LibraryBookResponse[] }
+export type LibrarySearchSort = 'added' | 'updated' | 'title' | 'year';
+export interface LibrarySearchFilters {
+  query?: string;
+  status?: ReadingStatus;
+  sort?: LibrarySearchSort;
+  order?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+export interface SearchBooksResponse {
+  books: LibraryBookResponse[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
 
 export interface UpdateReadingStatusRequest { status: ReadingStatus }
 export interface UpdateReadingProgressRequest { currentPage: number }
