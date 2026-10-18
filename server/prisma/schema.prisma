@@ -71,6 +71,8 @@ model User {
   readingSessions ReadingSession[]
   progressEvents ReadingProgressEvent[]
   readingGoal ReadingGoal?
+  syncCursor SyncCursor?
+  syncEvents SyncEvent[]
 }
 
 model Session {
@@ -362,4 +364,22 @@ model PasswordReset {
   createdAt DateTime @default(now())
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@index([userId, createdAt])
+}
+
+model SyncCursor {
+  userId String @id @db.Uuid
+  revision BigInt @default(0)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SyncEvent {
+  id BigInt @id @default(autoincrement())
+  userId String @db.Uuid
+  revision BigInt
+  copyId String @db.Uuid
+  action String @db.VarChar(8)
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([userId, revision])
+  @@index([userId, revision])
 }
