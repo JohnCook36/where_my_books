@@ -100,14 +100,37 @@ try {
     await call('/auth/login', { method: 'POST', status: 401, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
   }
   await call('/auth/login', { method: 'POST', status: 429, body: { email: 'nonexistent@example.test', password: 'wrong-password-123' } });
-    await call('/books', { status: 401 });
+    await call('/sync/bootstrap', { status: 401 });
+  await call('/sync/changes?after=0', { status: 401 });
+  const emptySync = await call('/sync/bootstrap', { token: a.accessToken });
+  assert.deepEqual(emptySync.books, []);
+  assert.equal(emptySync.cursor, '0');
+  await call('/sync/changes?after=abc', { token: a.accessToken, status: 400 });
+  await call('/sync/changes?after=999999', { token: a.accessToken, status: 400 });
+  await call('/books', { status: 401 });
   const payload = { title: 'Real database book', author: 'Author A', authors: ['Author A', 'Author B'], totalPages: 120, isbn: '0-306-40615-2', publisher: 'Test publisher', publicationYear: 1980, catalogSource: 'open_library', externalId: '/books/TEST', coverUri: 'https://covers.openlibrary.org/b/id/1-L.jpg', clientRequestId: randomUUID() };
   const [one, replay] = await Promise.all([call('/books', { token: a.accessToken, method: 'POST', status: 201, body: payload }), call('/books', { token: a.accessToken, method: 'POST', status: 201, body: payload })]);
   assert.equal(one.id, replay.id);
+  const syncA = await call('/sync/changes?after=0', { token: a.accessToken });
+  assert.equal(syncA.changes.length, 1);
+  assert.equal(syncA.changes[0].action, 'upsert');
+  assert.equal(syncA.changes[0].copyId, one.id);
+  const syncB = await call('/sync/changes?after=0', { token: b.accessToken });
+  assert.deepEqual(syncB.changes, []);
+  assert.equal(syncB.serverCursor, '0');
+  const bootstrapWithBook = await call('/sync/bootstrap', { token: a.accessToken });
+  assert.equal(bootstrapWithBook.books.length, 1);
+  assert.equal(bootstrapWithBook.cursor, syncA.cursor);
+  const noneAfter = await call('/sync/changes?after=' + syncA.cursor, { token: a.accessToken });
+  assert.deepEqual(noneAfter.changes, []);
+
   await call('/books', { token: a.accessToken, method: 'POST', status: 409, body: { ...payload, title: 'Changed retry payload' } });
   await call(`/books/${one.id}`, { token: a.accessToken, method: 'PATCH', status: 400, body: { title: null } }); assert.equal(one.edition.isbn, '9780306406157'); assert.equal(one.work.authors.length, 2); assert.equal(one.coverUri, payload.coverUri);
   assert.equal((await call('/books', { token: a.accessToken })).books.length, 1);
   const second = await call('/books', { token: a.accessToken, method: 'POST', status: 201, body: { ...payload, clientRequestId: randomUUID(), editionId: one.editionId } });
+  const afterSecond = await call('/sync/changes?after=' + syncA.cursor, { token: a.accessToken });
+  assert.equal(afterSecond.changes.length, 1);
+  assert.equal(afterSecond.changes[0].copyId, second.id);
   assert.notEqual(one.id, second.id); assert.equal(one.editionId, second.editionId);
   await call(`/books/${one.id}`, { token: a.accessToken, method: 'PATCH', body: { title: 'Personal correction', totalPages: 130 } });
   assert.equal((await call(`/books/${second.id}`, { token: a.accessToken })).work.title, payload.title);
