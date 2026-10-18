@@ -5,12 +5,16 @@ import { CurrentUser } from './current-user.decorator.js';
 import { JwtAuthGuard } from './jwt-auth.guard.js';
 import type { AccessTokenPayload } from './auth.types.js';
 import { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto.js';
+import { AuthRateGuard } from './auth-rate.guard.js';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
+  @UseGuards(AuthRateGuard)
   @Post('register') register(@Body() dto: RegisterDto): Promise<AuthResponse> { return this.auth.register(dto); }
+  @UseGuards(AuthRateGuard)
   @Post('login') login(@Body() dto: LoginDto): Promise<AuthResponse> { return this.auth.login(dto); }
+  @UseGuards(AuthRateGuard)
   @Post('refresh') refresh(@Body() dto: RefreshDto): Promise<RefreshResponse> { return this.auth.refresh(dto); }
   @Post('logout') logout(@Body() dto: RefreshDto): Promise<void> { return this.auth.logout(dto.refreshToken); }
   @UseGuards(JwtAuthGuard)
