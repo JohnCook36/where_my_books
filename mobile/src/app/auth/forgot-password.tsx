@@ -9,7 +9,7 @@ import { api } from '../../api/client';
 const Title = styled.Text({ color: colors.ink, ...typography.display, marginBottom: spacing.sm });
 const Hint = styled.Text({ color: colors.inkSecondary, ...typography.body, marginBottom: spacing.lg });
 const Field = styled(TextInput)({ backgroundColor: colors.paper, borderColor: colors.border, borderRadius: radii.md, borderWidth: 1, color: colors.ink, padding: spacing.md, marginBottom: spacing.md });
-const Error = styled.Text({ color: colors.burgundy, ...typography.label, marginBottom: spacing.md });
+const ErrorText = styled.Text({ color: colors.burgundy, ...typography.label, marginBottom: spacing.md });
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -30,7 +30,7 @@ export default function ForgotPasswordScreen() {
     <Title>Восстановление доступа</Title>
     <Hint>{sent ? 'Если такой аккаунт существует, письмо с одноразовой ссылкой будет отправлено. Проверьте почту.' : 'Укажите email аккаунта. Ссылка для смены пароля действует 15 минут.'}</Hint>
     {!sent ? <><Field accessibilityLabel="Email" autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={colors.inkMuted} value={email} onChangeText={setEmail} /><PillButton label={busy ? 'Отправляем…' : 'Получить ссылку'} disabled={busy || !email.includes('@')} onPress={() => void submit()} /></> : null}
-    {error ? <Error>{error}</Error> : null}
+    {error ? <ErrorText>{error}</ErrorText> : null}
     <PillButton variant="secondary" label="Вернуться ко входу" onPress={() => router.replace('/auth/login')} />
   </ScreenContent></KeyboardAvoidingView></ScreenContainer>;
 }
