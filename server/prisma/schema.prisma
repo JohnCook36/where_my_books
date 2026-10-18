@@ -69,6 +69,7 @@ model User {
   journalEntries JournalEntry[]
   readingSessions ReadingSession[]
   progressEvents ReadingProgressEvent[]
+  readingGoal ReadingGoal?
 }
 
 model Session {
@@ -340,4 +341,13 @@ model ReadingProgressEvent {
   copy BookCopy @relation(fields: [copyId, userId], references: [id, userId], onDelete: Cascade)
 
   @@index([userId, copyId, createdAt])
+}
+
+model ReadingGoal {
+  userId String @id @db.Uuid
+  finishedBooksTarget Int @default(12)
+  weeklyMinutesTarget Int @default(180)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

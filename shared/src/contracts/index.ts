@@ -78,6 +78,29 @@ export interface ReadingHistoryResponse {
 export interface FinishReadingSessionRequest { endPage: number }
 export interface FinishReadingSessionResponse { session: ReadingSessionResponse; currentPage: number }
 
+export interface ReadingGoals {
+  finishedBooksTarget: number;
+  weeklyMinutesTarget: number;
+}
+export interface UpdateReadingGoalsRequest extends ReadingGoals {}
+export interface ReadingStatsDay {
+  date: string;
+  minutes: number;
+  pagesAdvanced: number;
+}
+export interface ReadingStatsResponse {
+  booksTotal: number;
+  booksReading: number;
+  booksFinished: number;
+  completedSessions: number;
+  totalMinutes: number;
+  totalPagesAdvanced: number;
+  weeklyMinutes: number;
+  weekStartUtc: string;
+  daily: ReadingStatsDay[];
+  goals: ReadingGoals;
+}
+
 export interface UpdateReadingStatusRequest { status: ReadingStatus }
 export interface UpdateReadingProgressRequest { currentPage: number }
 export interface UpdateUserSettingsRequest { progressDisplayMode: ProgressDisplayMode }

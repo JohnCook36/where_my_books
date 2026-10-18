@@ -80,6 +80,28 @@ try {
   assert.equal(savedHistory.events[0].source, 'session');
   assert.equal(savedHistory.events[0].fromPage, 20);
   assert.equal(savedHistory.events[0].toPage, 23);
+  // Real analytics and account-owned goals, never mock client counters.
+  await call('/statistics', { status: 401 });
+  const statsA = await call('/statistics', { token: a.accessToken });
+  assert.equal(statsA.booksTotal, 2);
+  assert.equal(statsA.booksReading, 1);
+  assert.equal(statsA.booksFinished, 0);
+  assert.equal(statsA.completedSessions, 1);
+  assert.ok(statsA.totalPagesAdvanced >= 23);
+  assert.equal(statsA.daily.length, 7);
+  assert.deepEqual(statsA.goals, { finishedBooksTarget: 12, weeklyMinutesTarget: 180 });
+  const statsB = await call('/statistics', { token: b.accessToken });
+  assert.equal(statsB.booksTotal, 0);
+  assert.equal(statsB.completedSessions, 0);
+  assert.equal(statsB.totalPagesAdvanced, 0);
+  await call('/statistics/goals', { token: b.accessToken, method: 'PATCH', status: 400, body: { finishedBooksTarget: 0, weeklyMinutesTarget: 180 } });
+  await call('/statistics/goals', { token: a.accessToken, method: 'PATCH', status: 400, body: { finishedBooksTarget: 13, weeklyMinutesTarget: 10081 } });
+  await call('/statistics/goals', { token: a.accessToken, method: 'PATCH', status: 400, body: { finishedBooksTarget: '14', weeklyMinutesTarget: 240 } });
+  const goalChange = await call('/statistics/goals', { token: a.accessToken, method: 'PATCH', body: { finishedBooksTarget: 24, weeklyMinutesTarget: 300 } });
+  assert.deepEqual(goalChange, { finishedBooksTarget: 24, weeklyMinutesTarget: 300 });
+  assert.deepEqual((await call('/statistics', { token: a.accessToken })).goals, goalChange);
+  assert.deepEqual((await call('/statistics', { token: b.accessToken })).goals, { finishedBooksTarget: 12, weeklyMinutesTarget: 180 });
+
   await call('/books/' + one.id + '/progress', { token: a.accessToken, method: 'PATCH', body: { currentPage: 20 } });
   const runningUntilRestart = await call('/books/' + one.id + '/reading/sessions/start', { token: a.accessToken, method: 'POST', status: 201 });
   assert.equal(runningUntilRestart.startPage, 20);
@@ -138,6 +160,7 @@ try {
   await call('/catalog?isbn=4006381333931', { token: a.accessToken, status: 400 });
   await stop(); await start();
   assert.equal((await call(`/books/${one.id}`, { token: a.accessToken })).progress.currentPage, 20);
+  assert.deepEqual((await call('/statistics', { token: a.accessToken })).goals, { finishedBooksTarget: 24, weeklyMinutesTarget: 300 });
   const restoredHistory = await call('/books/' + one.id + '/reading', { token: a.accessToken });
   assert.equal(restoredHistory.active.id, runningUntilRestart.id);
   assert.equal(restoredHistory.sessions.length, 1);
