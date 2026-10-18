@@ -17,13 +17,36 @@ describe('AuthService', () => {
     await expect(new AuthService(prisma as never, jwt as never, config as never).login({ email: user.email, password: 'password123' })).rejects.toBeInstanceOf(UnauthorizedException);
   });
 
-  it('rotates refresh tokens and revokes the old session', async () => {
+  it('rotates the refresh token only after a conditional single-use claim', async () => {
     const session = { id: 'session', revokedAt: null, expiresAt: new Date(Date.now() + 60_000), user };
-    const prisma = { session: { findUnique: vi.fn().mockResolvedValue(session), update: vi.fn(), create: vi.fn() }, $transaction: vi.fn().mockResolvedValue([]) };
+    const tx = {
+      session: { updateMany: vi.fn().mockResolvedValue({ count: 1 }), create: vi.fn().mockResolvedValue({ id: 'next' }) },
+    };
+    const prisma = {
+      session: { findUnique: vi.fn().mockResolvedValue(session) },
+      $transaction: vi.fn().mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
+    };
     const service = new AuthService(prisma as never, jwt as never, config as never);
     const result = await service.refresh({ refreshToken: 'old-refresh-token-1234567890' });
     expect(result.accessToken).toBe('access-token');
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.session.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'session', revokedAt: null, expiresAt: { gt: expect.any(Date) } },
+    }));
+    expect(tx.session.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects replayed refresh tokens without issuing a replacement session', async () => {
+    const session = { id: 'session', revokedAt: null, expiresAt: new Date(Date.now() + 60_000), user };
+    const tx = {
+      session: { updateMany: vi.fn().mockResolvedValue({ count: 0 }), create: vi.fn() },
+    };
+    const prisma = {
+      session: { findUnique: vi.fn().mockResolvedValue(session) },
+      $transaction: vi.fn().mockImplementation(async (fn: (client: typeof tx) => Promise<unknown>) => fn(tx)),
+    };
+    const service = new AuthService(prisma as never, jwt as never, config as never);
+    await expect(service.refresh({ refreshToken: 'old-refresh-token-1234567890' })).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(tx.session.create).not.toHaveBeenCalled();
   });
 
   it('revokes a refresh session on logout', async () => {
