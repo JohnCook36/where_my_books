@@ -29,7 +29,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     login: async (email, password) => { setError(null); try { const response = await api.login({ email, password }); await tokenStore.set(response); setUser(response.user); } catch (err) { setError(err instanceof Error ? err.message : 'Не удалось войти'); throw err; } },
     register: async (email, password) => { setError(null); try { const response = await api.register({ email, password }); await tokenStore.set(response); setUser(response.user); } catch (err) { setError(err instanceof Error ? err.message : 'Не удалось зарегистрироваться'); throw err; } },
     logout: async () => { try { await api.logout(); } finally { await tokenStore.clear(); setUser(null); } },
-    logoutAll: async () => { try { await api.logoutAll(); } finally { await tokenStore.clear(); setUser(null); } },
+    logoutAll: async () => { await api.logoutAll(); await tokenStore.clear(); setUser(null); },
   }), [error, loading, user]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
