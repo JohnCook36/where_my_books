@@ -33,6 +33,9 @@ describe('AuthService', () => {
       where: { id: 'session', revokedAt: null, expiresAt: { gt: expect.any(Date) } },
     }));
     expect(tx.session.create).toHaveBeenCalledTimes(1);
+    const createdId = tx.session.create.mock.calls[0][0].data.id;
+    expect(createdId).toMatch(/^[0-9a-f-]{36}$/i);
+    expect(jwt.signAsync).toHaveBeenCalledWith(expect.objectContaining({ sessionId: createdId }), expect.any(Object));
   });
 
   it('rejects replayed refresh tokens without issuing a replacement session', async () => {
@@ -47,6 +50,14 @@ describe('AuthService', () => {
     const service = new AuthService(prisma as never, jwt as never, config as never);
     await expect(service.refresh({ refreshToken: 'old-refresh-token-1234567890' })).rejects.toBeInstanceOf(UnauthorizedException);
     expect(tx.session.create).not.toHaveBeenCalled();
+  });
+
+  it('revokes all the user sessions without touching another owner', async () => {
+    const prisma = { session: { updateMany: vi.fn().mockResolvedValue({ count: 2 }) } };
+    await new AuthService(prisma as never, jwt as never, config as never).revokeAllSessions('owner');
+    expect(prisma.session.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'owner', revokedAt: null }, data: { revokedAt: expect.any(Date) },
+    });
   });
 
   it('revokes a refresh session on logout', async () => {
