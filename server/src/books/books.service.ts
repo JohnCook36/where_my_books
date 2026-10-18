@@ -7,6 +7,7 @@ import { isbn13 } from '@where-my-books/shared';
 import { validateOwnedCoverSelection } from '../covers/cover-access.js';
 import { catalogCoverUri } from '../catalog/providers.js';
 import { PrismaService } from '../prisma.service.js';
+import { lockReading } from '../reading/reading.service.js';
 
 const include = { placement: { include: { row: { include: { section: { include: { shelf: { include: { room: true } } } } } } } }, edition: { include: { work: { include: { authors: { include: { author: true } } } } } } } as const;
 type BookWithRelations = Prisma.BookCopyGetPayload<{ include: typeof include }>;
@@ -151,9 +152,16 @@ export class BooksService {
   }
 
   async updateProgress(userId: string, id: string, dto: UpdateReadingProgressRequest): Promise<LibraryBookResponse> {
-    const current = await this.owned(userId, id);
-    if (dto.currentPage < 0 || dto.currentPage > current.edition.pageCount) throw new BadRequestException('currentPage must be within the book page count');
-    return this.toResponse(await this.prisma.bookCopy.update({ where: { id }, data: { currentPage: dto.currentPage }, include }));
+    return this.prisma.$transaction(async (tx) => {
+      await lockReading(tx, userId);
+      const current = await tx.bookCopy.findFirst({ where: { id, userId }, include });
+      if (!current) throw new NotFoundException('Книга не найдена');
+      if (dto.currentPage < 0 || dto.currentPage > current.edition.pageCount) throw new BadRequestException('currentPage must be within the book page count');
+      if (current.currentPage === dto.currentPage) return this.toResponse(current);
+      const updated = await tx.bookCopy.update({ where: { id }, data: { currentPage: dto.currentPage }, include });
+      await tx.readingProgressEvent.create({ data: { userId, copyId: id, fromPage: current.currentPage, toPage: dto.currentPage, source: 'manual' } });
+      return this.toResponse(updated);
+    });
   }
 
   private async owned(userId: string, id: string): Promise<BookWithRelations> {
