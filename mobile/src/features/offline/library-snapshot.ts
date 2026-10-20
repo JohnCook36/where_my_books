@@ -30,6 +30,15 @@ export const librarySnapshot = {
     if (file.exists) file.delete();
     tmp.move(file);
   },
+  async upsert(ownerId: string, book: LibraryBookResponse): Promise<void> {
+    if (Platform.OS === 'web') return;
+    const snapshot = await this.read(ownerId);
+    const books = snapshot?.books ?? [];
+    const index = books.findIndex(item => item.id === book.id);
+    if (index >= 0) books[index] = book;
+    else books.push(book);
+    await this.save(ownerId, books);
+  },
   async read(ownerId: string): Promise<SavedSnapshot | null> {
     if (Platform.OS === 'web') return null;
     const file = fileFor(ownerId);
