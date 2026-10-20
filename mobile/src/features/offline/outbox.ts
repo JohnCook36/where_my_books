@@ -98,7 +98,7 @@ export const offlineOutbox = {
   async flush(ownerId: string): Promise<OutboxStatus> {
     return serial(async () => {
       const value = await readRaw(ownerId);
-      for (const item of value.items) {
+      for (const item of [...value.items]) {
         if (item.conflict) continue;
         let receipt: SyncMutationResult;
         try {
