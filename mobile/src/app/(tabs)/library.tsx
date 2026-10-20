@@ -8,6 +8,7 @@ import { colors, radii, spacing, typography } from '@/theme';
 import { api } from '../../api/client';
 import { BookCover } from '../../features/catalog/BookCover';
 import { useAuth } from '../../features/auth/AuthProvider';
+import { filterCachedBooks, librarySnapshot } from '../../features/offline/library-snapshot';
 
 const Title = styled.Text({ color: colors.ink, ...typography.heading });
 const Meta = styled.Text({ color: colors.inkSecondary, ...typography.caption, marginTop: spacing.xs });
@@ -44,22 +45,39 @@ export default function LibraryScreen() {
   const [reload, setReload] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cachedAt, setCachedAt] = useState<string | null>(null);
 
   const load = useCallback(() => {
     if (!auth.user) return;
     let active = true;
     setLoading(true);
     setError(null);
+    const ownerId = auth.user.id;
+    const filters = { query, ...(status ? { status } : {}), sort, order, page, limit: 20 };
     void Promise.all([
-      api.searchBooks({ query, ...(status ? { status } : {}), sort, order, page, limit: 20 }),
+      api.searchBooks(filters),
       api.settings(),
-    ]).then(([data, settings]) => {
+      api.syncBootstrap(),
+    ]).then(([data, settings, snapshot]) => {
       if (!active) return;
       setResult(data);
       setMode(settings.settings.progressDisplayMode);
-    }).catch((err: unknown) => {
-      if (active) setError(err instanceof Error ? err.message : 'Ошибка загрузки');
-    }).finally(() => { if (active) setLoading(false); });
+      setCachedAt(null);
+      void librarySnapshot.save(ownerId, snapshot.books).catch(() => { /* Network result stays usable when local persistence fails. */ });
+    }).catch(() => {
+      void librarySnapshot.read(ownerId).then((snapshot) => {
+        if (!active) return;
+        if (snapshot) {
+          setResult(filterCachedBooks(snapshot.books, filters));
+          setCachedAt(snapshot.savedAt);
+          setError(null);
+        } else {
+          setError('Не удалось загрузить библиотеку. Нет доступного локального снимка.');
+        }
+      }).catch(() => {
+        if (active) setError('Не удалось прочитать локальную библиотеку.');
+      }).finally(() => { if (active) setLoading(false); });
+    }).finally(() => { if (active && !cachedAt) setLoading(false); });
     return () => { active = false; };
   }, [auth.user, query, status, sort, order, page, reload]);
 
@@ -79,6 +97,7 @@ export default function LibraryScreen() {
     <ScreenScroll keyboardShouldPersistTaps="handled">
       <ScreenContent>
         <AppHeader title="Библиотека" subtitle={`${result.total} книг найдено`} />
+        {cachedAt ? <Meta>Офлайн-копия от {new Date(cachedAt).toLocaleString()}. Изменения без интернета пока недоступны.</Meta> : null}
         <PillButton label="Мои шкафы и расположение книг" variant="secondary" onPress={() => router.push('/shelves')} />
         <Filters>
           <SearchField
