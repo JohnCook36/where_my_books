@@ -96,6 +96,14 @@ export const offlineOutbox = {
       return statusOf(value);
     });
   },
+  async discardConflicts(ownerId: string): Promise<OutboxStatus> {
+    return serial(async () => {
+      const value = await readRaw(ownerId);
+      value.items = value.items.filter(item => !item.conflict);
+      writeRaw(ownerId, value);
+      return statusOf(value);
+    });
+  },
   async flush(ownerId: string): Promise<OutboxStatus> {
     if (Platform.OS === 'web') return { pending: 0, conflicts: 0 };
     return serial(async () => {
