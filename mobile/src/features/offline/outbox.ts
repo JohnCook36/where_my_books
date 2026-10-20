@@ -78,6 +78,7 @@ export function applyPendingEdits(books: LibraryBookResponse[], items: readonly 
 
 export const offlineOutbox = {
   async inspect(ownerId: string): Promise<OutboxStatus> {
+    if (Platform.OS === 'web') return { pending: 0, conflicts: 0 };
     const value = await serial(() => readRaw(ownerId));
     return statusOf(value);
   },
@@ -96,6 +97,7 @@ export const offlineOutbox = {
     });
   },
   async flush(ownerId: string): Promise<OutboxStatus> {
+    if (Platform.OS === 'web') return { pending: 0, conflicts: 0 };
     return serial(async () => {
       const value = await readRaw(ownerId);
       for (const item of [...value.items]) {
