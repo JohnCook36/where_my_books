@@ -109,6 +109,7 @@ export const api = {
   mutateShelf: (body: import('@where-my-books/shared').ShelfMutation) => request<import('@where-my-books/shared').ShelfMutationResponse>('/shelves/layout', { method: 'POST', body: JSON.stringify(body) }),
   syncBootstrap: () => request<import('@where-my-books/shared').SyncBootstrapResponse>('/sync/bootstrap'),
   syncChanges: (cursor: string) => request<import('@where-my-books/shared').SyncChangesResponse>('/sync/changes?after=' + encodeURIComponent(cursor)),
+  sendSyncMutation: (payload: import('@where-my-books/shared').SyncMutationRequest) => request<import('@where-my-books/shared').SyncMutationResult>('/sync/mutations', { method: 'POST', body: JSON.stringify(payload) }),
   books: () => request<{ books: import('@where-my-books/shared').LibraryBookResponse[] }>('/books'),
   searchBooks: (filters: import('@where-my-books/shared').LibrarySearchFilters) => {
     const params = new URLSearchParams();

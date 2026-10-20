@@ -11,6 +11,21 @@ export interface CurrentUserResponse { user: AuthUser }
 export interface SyncBootstrapResponse { cursor: string; books: LibraryBookResponse[] }
 export interface SyncChange { revision: string; copyId: string; action: 'upsert' | 'delete' }
 export interface SyncChangesResponse { cursor: string; serverCursor: string; hasMore: boolean; changes: SyncChange[] }
+export interface SyncMutationRequest {
+  operationId: string;
+  copyId: string;
+  baseUpdatedAt: string;
+  kind: 'status' | 'progress';
+  status?: import('../reading/progress.js').ReadingStatus;
+  currentPage?: number;
+}
+export interface SyncMutationResult {
+  operationId: string;
+  copyId: string;
+  updatedAt: string;
+  status: import('../reading/progress.js').ReadingStatus;
+  currentPage: number;
+}
 export interface AccountSession {
   id: string;
   createdAt: string;
