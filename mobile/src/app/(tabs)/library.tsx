@@ -2,13 +2,14 @@ import styled from '@emotion/native';
 import { formatReadingProgress, type LibraryBookResponse, type LibrarySearchSort, type ProgressDisplayMode, type ReadingStatus, type SearchBooksResponse } from '@where-my-books/shared';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, TextInput } from 'react-native';
+import { Alert, Pressable, TextInput } from 'react-native';
 import { AppHeader, EmptyState, ErrorState, LoadingState, PillButton, ScreenContainer, ScreenContent, ScreenScroll, SurfaceCard } from '@/components';
 import { colors, radii, spacing, typography } from '@/theme';
 import { api } from '../../api/client';
 import { BookCover } from '../../features/catalog/BookCover';
 import { useAuth } from '../../features/auth/AuthProvider';
 import { filterCachedBooks, librarySnapshot } from '../../features/offline/library-snapshot';
+import { offlineOutbox, type OutboxStatus } from '../../features/offline/outbox';
 
 const Title = styled.Text({ color: colors.ink, ...typography.heading });
 const Meta = styled.Text({ color: colors.inkSecondary, ...typography.caption, marginTop: spacing.xs });
@@ -46,6 +47,7 @@ export default function LibraryScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cachedAt, setCachedAt] = useState<string | null>(null);
+  const [queue, setQueue] = useState<OutboxStatus>({ pending: 0, conflicts: 0 });
 
   const load = useCallback(() => {
     if (!auth.user) return;
@@ -54,31 +56,41 @@ export default function LibraryScreen() {
     setError(null);
     const ownerId = auth.user.id;
     const filters = { query, ...(status ? { status } : {}), sort, order, page, limit: 20 };
-    void Promise.all([
-      api.searchBooks(filters),
-      api.settings(),
-      api.syncBootstrap(),
-    ]).then(([data, settings, snapshot]) => {
-      if (!active) return;
-      setResult(data);
-      setMode(settings.settings.progressDisplayMode);
-      setCachedAt(null);
-      void librarySnapshot.save(ownerId, snapshot.books).catch(() => { /* Network result stays usable when local persistence fails. */ });
-    }).catch(async () => {
+    void (async () => {
       try {
-        const snapshot = await librarySnapshot.read(ownerId);
+        const state = await offlineOutbox.flush(ownerId);
+        if (active) setQueue(state);
+        const [data, settings, snapshot] = await Promise.all([
+          api.searchBooks(filters),
+          api.settings(),
+          api.syncBootstrap(),
+        ]);
+        const visible = await offlineOutbox.overlay(ownerId, data.books);
         if (!active) return;
-        if (snapshot) {
-          setResult(filterCachedBooks(snapshot.books, filters));
-          setCachedAt(snapshot.savedAt);
-          setError(null);
-        } else {
-          setError('Не удалось загрузить библиотеку. Нет доступного локального снимка.');
-        }
+        setResult({ ...data, books: visible });
+        setMode(settings.settings.progressDisplayMode);
+        setCachedAt(null);
+        await librarySnapshot.save(ownerId, snapshot.books);
       } catch {
-        if (active) setError('Не удалось прочитать локальную библиотеку.');
+        try {
+          const snapshot = await librarySnapshot.read(ownerId);
+          if (!active) return;
+          if (snapshot) {
+            const visible = await offlineOutbox.overlay(ownerId, snapshot.books);
+            if (!active) return;
+            setResult(filterCachedBooks(visible, filters));
+            setCachedAt(snapshot.savedAt);
+            setError(null);
+          } else {
+            setError('Не удалось загрузить библиотеку. Нет доступного локального снимка.');
+          }
+        } catch {
+          if (active) setError('Не удалось прочитать локальные данные.');
+        }
+      } finally {
+        if (active) setLoading(false);
       }
-    }).finally(() => { if (active) setLoading(false); });
+    })();
     return () => { active = false; };
   }, [auth.user, query, status, sort, order, page, reload]);
 
@@ -98,6 +110,12 @@ export default function LibraryScreen() {
     <ScreenScroll keyboardShouldPersistTaps="handled">
       <ScreenContent>
         <AppHeader title="Библиотека" subtitle={`${result.total} книг найдено`} />
+        {queue.pending || queue.conflicts ? <Meta>Локальные изменения: ожидают отправки {queue.pending}, требуют решения {queue.conflicts}</Meta> : null}
+        {queue.pending ? <PillButton label="Повторить синхронизацию" variant="secondary" onPress={() => setReload(value => value + 1)} /> : null}
+        {queue.conflicts && auth.user ? <PillButton label="Отменить конфликтующие локальные правки" variant="secondary" onPress={() => Alert.alert('Удалить конфликтующие правки?', 'Изменения, которые сервер не принял, будут удалены с этого устройства. Серверные данные останутся без изменений.', [
+          { text: 'Назад', style: 'cancel' },
+          { text: 'Удалить локальные правки', style: 'destructive', onPress: () => void offlineOutbox.discardConflicts(auth.user!.id).then(() => setReload(value => value + 1)).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Не удалось очистить конфликт')) },
+        ])} /> : null}
         {cachedAt ? <Meta>Офлайн-копия от {new Date(cachedAt).toLocaleString()}. Изменения без интернета пока недоступны.</Meta> : null}
         <PillButton label="Мои шкафы и расположение книг" variant="secondary" onPress={() => router.push('/shelves')} />
         <Filters>
