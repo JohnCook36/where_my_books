@@ -2,7 +2,7 @@ import styled from '@emotion/native';
 import { formatReadingProgress, type LibraryBookResponse, type LibrarySearchSort, type ProgressDisplayMode, type ReadingStatus, type SearchBooksResponse } from '@where-my-books/shared';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, TextInput } from 'react-native';
+import { Alert, Pressable, TextInput } from 'react-native';
 import { AppHeader, EmptyState, ErrorState, LoadingState, PillButton, ScreenContainer, ScreenContent, ScreenScroll, SurfaceCard } from '@/components';
 import { colors, radii, spacing, typography } from '@/theme';
 import { api } from '../../api/client';
@@ -112,6 +112,10 @@ export default function LibraryScreen() {
         <AppHeader title="Библиотека" subtitle={`${result.total} книг найдено`} />
         {queue.pending || queue.conflicts ? <Meta>Локальные изменения: ожидают отправки {queue.pending}, требуют решения {queue.conflicts}</Meta> : null}
         {queue.pending ? <PillButton label="Повторить синхронизацию" variant="secondary" onPress={() => setReload(value => value + 1)} /> : null}
+        {queue.conflicts && auth.user ? <PillButton label="Отменить конфликтующие локальные правки" variant="secondary" onPress={() => Alert.alert('Удалить конфликтующие правки?', 'Изменения, которые сервер не принял, будут удалены с этого устройства. Серверные данные останутся без изменений.', [
+          { text: 'Назад', style: 'cancel' },
+          { text: 'Удалить локальные правки', style: 'destructive', onPress: () => void offlineOutbox.discardConflicts(auth.user!.id).then(() => setReload(value => value + 1)).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Не удалось очистить конфликт')) },
+        ])} /> : null}
         {cachedAt ? <Meta>Офлайн-копия от {new Date(cachedAt).toLocaleString()}. Изменения без интернета пока недоступны.</Meta> : null}
         <PillButton label="Мои шкафы и расположение книг" variant="secondary" onPress={() => router.push('/shelves')} />
         <Filters>
