@@ -73,6 +73,7 @@ model User {
   readingGoal ReadingGoal?
   syncCursor SyncCursor?
   syncEvents SyncEvent[]
+  syncOperations SyncOperation[]
 }
 
 model Session {
@@ -382,4 +383,15 @@ model SyncEvent {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([userId, revision])
   @@index([userId, revision])
+}
+
+model SyncOperation {
+  userId String @db.Uuid
+  operationId String @db.Uuid
+  requestHash String @db.Char(64)
+  result Json
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([userId, operationId])
+  @@index([userId, createdAt])
 }
