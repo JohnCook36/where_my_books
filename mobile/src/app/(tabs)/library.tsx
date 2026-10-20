@@ -64,8 +64,9 @@ export default function LibraryScreen() {
       setMode(settings.settings.progressDisplayMode);
       setCachedAt(null);
       void librarySnapshot.save(ownerId, snapshot.books).catch(() => { /* Network result stays usable when local persistence fails. */ });
-    }).catch(() => {
-      void librarySnapshot.read(ownerId).then((snapshot) => {
+    }).catch(async () => {
+      try {
+        const snapshot = await librarySnapshot.read(ownerId);
         if (!active) return;
         if (snapshot) {
           setResult(filterCachedBooks(snapshot.books, filters));
@@ -74,10 +75,10 @@ export default function LibraryScreen() {
         } else {
           setError('Не удалось загрузить библиотеку. Нет доступного локального снимка.');
         }
-      }).catch(() => {
+      } catch {
         if (active) setError('Не удалось прочитать локальную библиотеку.');
-      }).finally(() => { if (active) setLoading(false); });
-    }).finally(() => { if (active && !cachedAt) setLoading(false); });
+      }
+    }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [auth.user, query, status, sort, order, page, reload]);
 
