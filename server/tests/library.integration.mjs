@@ -425,6 +425,33 @@ try {
   const restoredStyle = await call(`/scan-drafts/${styleDraft.id}`, { token: a.accessToken }); assert.equal(restoredStyle.payload.coverStyle, 'midnight'); assert.equal(restoredStyle.isbn, '9780306406157');
   const styleConfirmation = await call('/scan-drafts/confirm', { token: a.accessToken, method: 'POST', status: 201, body: { items: [{ id: styleReady.id, revision: styleReady.revision }] } });
   assert.equal(styleConfirmation.results[0].status, 'saved'); const styleSaved = await call(`/books/${styleConfirmation.results[0].copyId}`, { token: a.accessToken }); assert.equal(styleSaved.coverStyle, 'midnight'); assert.equal(styleSaved.edition.isbn, '9780306406157');
+  // Owner-bound offline mutation receipts survive replay and API restarts.
+  const offlineOpId = randomUUID();
+  const offlineOp = {
+    operationId: offlineOpId,
+    copyId: styleSaved.id,
+    baseUpdatedAt: styleSaved.updatedAt,
+    kind: 'progress',
+    currentPage: 7,
+  };
+  await call('/sync/mutations', { method: 'POST', body: offlineOp, status: 401 });
+  await call('/sync/mutations', { method: 'POST', token: b.accessToken, body: offlineOp, status: 404 });
+  const mutation = await call('/sync/mutations', { method: 'POST', token: a.accessToken, status: 201, body: offlineOp });
+  assert.equal(mutation.currentPage, 7);
+  assert.equal(mutation.operationId, offlineOpId);
+  assert.deepEqual(await call('/sync/mutations', { method: 'POST', token: a.accessToken, status: 201, body: offlineOp }), mutation);
+  await call('/sync/mutations', { method: 'POST', token: a.accessToken, status: 409, body: { ...offlineOp, currentPage: 8 } });
+  await call('/sync/mutations', { method: 'POST', token: a.accessToken, status: 409, body: { ...offlineOp, operationId: randomUUID(), currentPage: 8 } });
+  await call('/sync/mutations', { method: 'POST', token: a.accessToken, status: 400, body: { ...offlineOp, operationId: randomUUID(), currentPage: -1 } });
+  const statusOffline = await call('/sync/mutations', { method: 'POST', token: a.accessToken, status: 201, body: {
+    operationId: randomUUID(), copyId: styleSaved.id, baseUpdatedAt: mutation.updatedAt,
+    kind: 'status', status: 'reading',
+  } });
+  assert.equal(statusOffline.status, 'reading');
+  await stop(); await start();
+  assert.deepEqual(await call('/sync/mutations', { method: 'POST', token: a.accessToken, status: 201, body: offlineOp }), mutation);
+  assert.equal((await call('/books/' + styleSaved.id, { token: a.accessToken })).progress.currentPage, 7);
+  assert.equal((await call('/books/' + styleSaved.id, { token: a.accessToken })).status, 'reading');
   await testShelves({ call, a, b, restart: async () => { await stop(); await start(); }, prisma });
   console.log('PASS: PostgreSQL/HTTP auth, isolation, CRUD, ISBN/cover persistence, concurrent replay, progress bounds, reviewed draft persistence/CAS, partial batch results, concurrent batch replay, API restart and complete 50-book capacity/replay; private image upload/normalization, bounds, ACL, draft confirmation, copy override/reset and protected deletion; catalog search/pagination/owner matches, search-to-copy snapshot and per-copy/draft cover styles');
 
